@@ -1,0 +1,239 @@
+services:
+  backend:
+    image: ngvms-backend:latest
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ngvms_backend
+    volumes:
+      - .:/app/shared:ro
+    environment:
+      NODE_ENV: production
+      PORT: "5000"
+      MONGODB_URI: ${MONGODB_URI:-mongodb://admin:NGVmsEnterpriseDB2026!@mongo:27017/ngvms?replicaSet=rs0&authSource=admin}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      JWT_SECRET: ${JWT_SECRET:-YOUR_SUPER_SECRET_PRODUCTION_KEY}
+      LICENSE_SECRET: ${LICENSE_SECRET:-default-secret-key-123}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-default-secret-key-123}
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-minio}
+      MINIO_PORT: ${MINIO_PORT:-9000}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
+      SMTP_HOST: ${SMTP_HOST:-smtp_relay}
+      SMTP_PORT: ${SMTP_PORT:-1025}
+      DISABLE_RATE_LIMITS: "false"
+    depends_on:
+      redis:
+        condition: service_started
+      minio:
+        condition: service_healthy
+      mongo_setup:
+        condition: service_completed_successfully
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:5000/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+    networks:
+      - ngvms_network
+
+  frontend:
+    image: ngvms-frontend:latest
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-/api/v1}
+        - NEXT_PUBLIC_SOCKET_URL=${NEXT_PUBLIC_SOCKET_URL:-/}
+    container_name: ngvms_frontend
+    environment:
+      - NODE_ENV=production
+    depends_on:
+      - backend
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+    networks:
+      - ngvms_network
+
+  redis:
+    image: redis:7-alpine
+    container_name: ngvms_redis
+    restart: unless-stopped
+    networks:
+      - ngvms_network
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  mongo:
+    image: mongo:6
+    container_name: ngvms_mongo
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:-admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-NGVmsEnterpriseDB2026!}
+    entrypoint:
+      - bash
+      - -c
+      - |
+        cp /data/mongo/mongo.key /tmp/mongo.key
+        chmod 400 /tmp/mongo.key
+        chown 999:999 /tmp/mongo.key
+        exec /usr/local/bin/docker-entrypoint.sh mongod --replSet rs0 --bind_ip_all --quiet --auth --keyFile /tmp/mongo.key
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet --eval 'db.adminCommand({ping:1})' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      start_period: 60s
+      retries: 12
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1.5'
+          memory: 2G
+    networks:
+      - ngvms_network
+    volumes:
+      - mongo_data:/data/db
+      - ./data/mongo/mongo.key:/data/mongo/mongo.key:ro
+  mongo_setup:
+    image: mongo:6
+    container_name: ngvms_mongo_setup
+    depends_on:
+      mongo:
+        condition: service_healthy
+    restart: "no"
+    networks:
+      - ngvms_network
+    command:
+      - /bin/bash
+      - -c
+      - |
+        echo 'Waiting for MongoDB to be ready...';
+        for i in {1..30}; do
+          if mongosh --host mongo:27017 -u "${MONGO_ROOT_USER:-admin}" -p "${MONGO_ROOT_PASSWORD:-NGVmsEnterpriseDB2026!}" --authenticationDatabase admin --quiet --eval "db.adminCommand({ping:1})" > /dev/null 2>&1; then
+            echo 'MongoDB is up. Initiating replica set...';
+            mongosh --host mongo:27017 -u "${MONGO_ROOT_USER:-admin}" -p "${MONGO_ROOT_PASSWORD:-NGVmsEnterpriseDB2026!}" --authenticationDatabase admin --quiet --eval "try { rs.status() } catch (err) { rs.initiate({_id:'rs0',members:[{_id:0,host:'mongo:27017'}]}) }"
+            exit 0
+          fi
+          echo "MongoDB not ready yet (attempt $$i), sleeping 5s...";
+          sleep 5
+        done
+        echo 'Failed to connect to MongoDB after 150 seconds.';
+        exit 1
+
+  minio:
+    image: minio/minio
+    container_name: ngvms_minio
+    ports:
+      - "9005:9001"
+      - "9000:9000"
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ACCESS_KEY:-ngvmsadmin}
+      - MINIO_ROOT_PASSWORD=${MINIO_SECRET_KEY:-EnterpriseMinioPass2026!}
+    command: ["server", "/data", "--console-address", ":9001"]
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:9000/minio/health/live" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - ngvms_network
+    volumes:
+      - minio_data:/data
+
+  smtp_relay:
+    image: maildev/maildev
+    container_name: ngvms_smtp
+    ports:
+      - "1081:1080" # Web UI
+    restart: unless-stopped
+    networks:
+      - ngvms_network
+
+  proxy:
+    image: caddy:2-alpine
+    container_name: ngvms_proxy
+    ports:
+      - "8080:80"
+      - "9443:443"
+    environment:
+      - DOMAIN_NAME=${DOMAIN_NAME:-localhost}
+      - TLS_EMAIL=${TLS_EMAIL:-admin@localhost}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - ./assets:/usr/share/caddy/assets
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - frontend
+      - backend
+    restart: unless-stopped
+    networks:
+      - ngvms_network
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: ngvms_prometheus
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./monitoring/alert.rules.yml:/etc/prometheus/alert.rules.yml
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    restart: unless-stopped
+    networks:
+      - ngvms_network
+
+  grafana:
+    image: grafana/grafana-oss:latest
+    container_name: ngvms_grafana
+    ports:
+      - "3001:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards
+    restart: unless-stopped
+    networks:
+      - ngvms_network
+
+  alertmanager:
+    image: prom/alertmanager:latest
+    container_name: ngvms_alertmanager
+    volumes:
+      - ./monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml
+      - alertmanager_data:/alertmanager
+    ports:
+      - "9093:9093"
+    restart: unless-stopped
+    networks:
+      - ngvms_network
+
+networks:
+  ngvms_network:
+    driver: bridge
+
+volumes:
+  redis_data:
+  mongo_data:
+  minio_data:
+  caddy_data:
+  caddy_config:
+  prometheus_data:
+  grafana_data:
+  alertmanager_data:

@@ -1,0 +1,150 @@
+{
+  "auditReportVersion": 2,
+  "vulnerabilities": {
+    "@ducanh2912/next-pwa": {
+      "name": "@ducanh2912/next-pwa",
+      "severity": "moderate",
+      "isDirect": true,
+      "via": [
+        "workbox-build",
+        "workbox-webpack-plugin"
+      ],
+      "effects": [],
+      "range": ">=10.2.7",
+      "nodes": [
+        "node_modules/@ducanh2912/next-pwa"
+      ],
+      "fixAvailable": {
+        "name": "@ducanh2912/next-pwa",
+        "version": "10.2.6",
+        "isSemVerMajor": true
+      }
+    },
+    "@rollup/plugin-terser": {
+      "name": "@rollup/plugin-terser",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        "serialize-javascript"
+      ],
+      "effects": [
+        "workbox-build"
+      ],
+      "range": "0.2.0 - 0.4.4",
+      "nodes": [
+        "node_modules/@rollup/plugin-terser"
+      ],
+      "fixAvailable": {
+        "name": "@ducanh2912/next-pwa",
+        "version": "10.2.6",
+        "isSemVerMajor": true
+      }
+    },
+    "serialize-javascript": {
+      "name": "serialize-javascript",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        {
+          "source": 1113686,
+          "name": "serialize-javascript",
+          "dependency": "serialize-javascript",
+          "title": "Serialize JavaScript is Vulnerable to RCE via RegExp.flags and Date.prototype.toISOString()",
+          "url": "https://github.com/advisories/GHSA-5c6j-r48x-rmvq",
+          "severity": "high",
+          "cwe": [
+            "CWE-96"
+          ],
+          "cvss": {
+            "score": 8.1,
+            "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H"
+          },
+          "range": "<=7.0.2"
+        },
+        {
+          "source": 1119440,
+          "name": "serialize-javascript",
+          "dependency": "serialize-javascript",
+          "title": "Serialize JavaScript has CPU Exhaustion Denial of Service via crafted array-like objects",
+          "url": "https://github.com/advisories/GHSA-qj8w-gfj5-8c6v",
+          "severity": "moderate",
+          "cwe": [
+            "CWE-400",
+            "CWE-834"
+          ],
+          "cvss": {
+            "score": 5.9,
+            "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H"
+          },
+          "range": ">=5.0.0 <7.0.5"
+        }
+      ],
+      "effects": [
+        "@rollup/plugin-terser"
+      ],
+      "range": "<=7.0.4",
+      "nodes": [
+        "node_modules/serialize-javascript"
+      ],
+      "fixAvailable": {
+        "name": "@ducanh2912/next-pwa",
+        "version": "10.2.6",
+        "isSemVerMajor": true
+      }
+    },
+    "workbox-build": {
+      "name": "workbox-build",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        "@rollup/plugin-terser"
+      ],
+      "effects": [
+        "@ducanh2912/next-pwa",
+        "workbox-webpack-plugin"
+      ],
+      "range": "7.1.0 - 7.4.0",
+      "nodes": [
+        "node_modules/workbox-build",
+        "node_modules/workbox-webpack-plugin/node_modules/workbox-build"
+      ],
+      "fixAvailable": {
+        "name": "@ducanh2912/next-pwa",
+        "version": "10.2.6",
+        "isSemVerMajor": true
+      }
+    },
+    "workbox-webpack-plugin": {
+      "name": "workbox-webpack-plugin",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        "workbox-build"
+      ],
+      "effects": [],
+      "range": "7.1.0 - 7.4.0",
+      "nodes": [
+        "node_modules/workbox-webpack-plugin"
+      ],
+      "fixAvailable": true
+    }
+  },
+  "metadata": {
+    "vulnerabilities": {
+      "info": 0,
+      "low": 0,
+      "moderate": 4,
+      "high": 1,
+      "critical": 0,
+      "total": 5
+    },
+    "dependencies": {
+      "prod": 634,
+      "dev": 5,
+      "optional": 75,
+      "peer": 0,
+      "peerOptional": 0,
+      "total": 712
+    }
+  }
+}

@@ -1,0 +1,286 @@
+/* ===== DIGITAL PASS — GOD LEVEL SIDE-BY-SIDE ===== */
+
+.pass_container_apple {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  background: transparent;
+}
+
+.pass_layout_v2 {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 3rem 1rem;
+  gap: 3rem;
+  width: 100%;
+}
+
+/* SCREEN VIEW: ALWAYS SIDE-BY-SIDE */
+.dual_page_display {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap; /* PREVENT WRAPPING */
+  gap: 40px;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  max-width: 1200px;
+  padding: 20px;
+}
+
+/* Card Geometry — Optimized for Screen CR80 */
+.vms_card_studio {
+  width: 520px;
+  height: 330px;
+  border-radius: 24px;
+  overflow: hidden;
+  background: rgba(255,255,255,0.72);
+  backdrop-filter: blur(50px);
+  border: 1px solid rgba(255,255,255,0.8);
+  box-shadow:
+    inset 0 2px 0 rgba(255,255,255,1),
+    0 30px 70px rgba(0,0,0,0.15),
+    0 10px 20px rgba(0,0,0,0.05);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  position: relative;
+}
+
+/* BACK CARD THEME (Screen) */
+.card_back_v2 {
+  background: #ffffff !important;
+  border: 1px solid rgba(0,0,0,0.1) !important;
+  box-shadow: 0 40px 90px rgba(0,0,0,0.08) !important;
+}
+
+.card_top {
+  background: linear-gradient(135deg, #0A0A0F 0%, #1a1a2e 100%);
+  padding: 14px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.card_top_back {
+  background: #007AFF;
+  padding: 14px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.card_main {
+  padding: 15px 24px;
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+  flex: 1;
+}
+
+/* Images & Branding */
+.v_photo_studio {
+  width: 80px; height: 104px; border-radius: 12px; overflow: hidden;
+  border: 2px solid #fff; box-shadow: 0 4px 12px rgba(0,0,0,0.1); background: #f2f2f7;
+}
+.v_photo_studio img { width: 100%; height: 100%; object-fit: cover; }
+
+.v_qr_studio {
+  width: 80px; height: 80px; padding: 6px; background: white;
+  border-radius: 12px; border: 1px solid rgba(0,0,0,0.05);
+}
+
+.v_name_text { font-size: 20px; font-weight: 800; color: #000; letter-spacing: -0.5px; margin-bottom: 2px; }
+.v_company_hero { font-size: 13px; font-weight: 700; color: #007AFF; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+.info_grid_studio {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.info_item span { font-size: 8px; font-weight: 800; color: #8E8E93; text-transform: uppercase; display: block; }
+.info_item p { font-size: 11px; font-weight: 600; color: #1C1C1E; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Timeline Strip */
+.pass_timeline { padding: 10px 24px; display: flex; background: rgba(0,0,0,0.03); border-top: 1px solid rgba(0,0,0,0.05); }
+.timeline_step { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; position: relative; }
+.timeline_dot { width: 10px; height: 10px; border-radius: 50%; background: #ddd; z-index: 1; }
+.timeline_step.active .timeline_dot { background: #007AFF; box-shadow: 0 0 0 3px rgba(0,122,255,0.2); }
+.timeline_step.done .timeline_dot { background: #34C759; }
+.timeline_label { font-size: 7px; font-weight: 800; color: #8E8E93; text-transform: uppercase; }
+
+.card_bottom { background: rgba(0,0,0,0.05); padding: 8px 24px; font-family: monospace; font-size: 8px; letter-spacing: 1.5px; border-top: 1px solid rgba(0,0,0,0.05); }
+
+/* Rules Section (Back) */
+.rules_container_v2 { display: flex; flex-direction: column; gap: 8px; }
+.rule_item_v2 { display: flex; align-items: center; gap: 12px; padding: 7px 12px; background: #f2f2f7; border-radius: 10px; border: 1px solid #e5e5ea; }
+.rule_bullet { width: 18px; height: 18px; background: #000; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 8px; font-weight: 900; }
+.rule_text_v2 { font-size: 11px; font-weight: 600; color: #1C1C1E; margin: 0; }
+
+.emergency_box_v2 { background: #fff2f2; border-radius: 14px; padding: 12px; border: 1.5px solid #ff3b30; display: flex; gap: 10px; align-items: center; }
+.emergency_header { color: #ff3b30; font-weight: 900; font-size: 10px; }
+.emergency_box_v2 p { font-size: 10px; font-weight: 600; color: #000; margin: 0; }
+
+/* Control Interface */
+.pass_controls { display: flex; gap: 1.5rem; width: 100%; max-width: 600px; }
+
+/* HIDING LOGIC — EXPLICIT */
+.only_print { display: none !important; }
+
+/* PRINT SPECIFIC STYLES — GOD LEVEL CR80 REPRODUCTION */
+.vms_card_studio_print {
+  width: 3.375in;
+  height: 2.125in;
+  background: white;
+  border: 1px solid #000;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  color: #000;
+  margin-bottom: 0.5in;
+}
+
+.card_top_print {
+  background: #000;
+  color: #fff;
+  padding: 8px 15px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.print_brand { font-weight: 900; font-size: 14px; }
+.print_clearance { font-weight: 700; font-size: 8px; opacity: 0.8; letter-spacing: 1px; }
+
+.card_main_print {
+  padding: 10px 15px;
+  display: flex;
+  gap: 12px;
+  flex: 1;
+}
+
+.v_photo_print {
+  width: 60px;
+  height: 75px;
+  border: 1px solid #000;
+  flex-shrink: 0;
+}
+.v_photo_print img { width: 100%; height: 100%; object-fit: cover; }
+
+.print_info_body { flex: 1; display: flex; flex-direction: column; }
+.print_name { font-size: 16px; font-weight: 900; margin: 0; }
+.print_company { font-size: 9px; font-weight: 800; color: #007AFF; margin-bottom: 5px; }
+
+.print_grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+.print_item span { font-size: 6px; font-weight: 900; color: #666; display: block; }
+.print_item p { font-size: 8px; font-weight: 700; margin: 0; }
+
+.print_qr_side { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.print_pass_id { font-size: 6px; font-weight: 900; font-family: monospace; }
+
+.card_bottom_print {
+  background: #f2f2f7;
+  padding: 4px 15px;
+  font-family: monospace;
+  font-size: 7px;
+  letter-spacing: 1px;
+  border-top: 1px solid #000;
+  text-align: center;
+}
+
+.card_top_back_print {
+  background: #007AFF;
+  color: #fff;
+  padding: 8px 15px;
+  text-align: center;
+}
+
+.print_rule_label { font-weight: 900; font-size: 10px; text-transform: uppercase; letter-spacing: 2px; }
+
+.print_rules_content { padding: 10px 15px; flex: 1; }
+.print_rule_item { display: flex; gap: 8px; margin-bottom: 4px; align-items: center; }
+.print_bullet { width: 12px; height: 12px; background: #000; color: #fff; border-radius: 50%; font-size: 7px; font-weight: 900; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.print_rule_item p { font-size: 8px; font-weight: 700; margin: 0; }
+
+.print_emergency_box { border: 1px solid #ff3b30; padding: 6px; border-radius: 6px; margin-top: 8px; }
+.print_emergency_box strong { font-size: 7px; color: #ff3b30; display: block; }
+.print_emergency_box p { font-size: 7px; font-weight: 600; margin: 0; }
+
+.print_footer_mrz { font-size: 6px; font-weight: 900; text-align: center; padding: 4px; opacity: 0.5; }
+
+@media print {
+  @page { size: portrait; margin: 0.5in; }
+  .no_print { display: none !important; }
+  .only_print { display: flex !important; flex-direction: column; align-items: center; }
+  
+  .pass_container_apple { background: white !important; padding: 0 !important; }
+  .pass_layout_v2 { display: block !important; padding: 0 !important; }
+  
+  /* Force background colors to print */
+  .only_print, .only_print * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .inverted_print_wrap {
+    transform: rotate(180deg);
+    width: 3.375in;
+    height: 2.125in;
+    border-radius: 12px;
+    overflow: hidden;
+    position: relative;
+    margin-top: 0.2in;
+    border: 1px solid rgba(0,0,0,0.1);
+  }
+}
+
+@media screen and (max-width: 768px) {
+  .pass_layout_v2 { padding: 1.5rem 1rem; gap: 2rem; }
+  .dual_page_display { flex-direction: column; padding: 10px; gap: 16px; }
+  .vms_card_studio { 
+    width: 100%; 
+    height: auto; 
+    min-height: 240px; 
+    border-radius: 20px;
+  }
+  .v_name_text { font-size: 1.1rem; }
+  .v_company_hero { font-size: 11px; }
+  .info_grid_studio { gap: 6px; }
+  .info_item p { font-size: 10px; }
+  .card_main { padding: 12px 16px; gap: 12px; }
+  .v_photo_studio { width: 64px; height: 84px; }
+  .v_qr_studio { width: 64px; height: 64px; }
+  .pass_controls { flex-direction: column; gap: 12px; padding: 0 16px; }
+  .pass_controls button { width: 100%; }
+}
+
+@media screen and (max-width: 480px) {
+  .vms_card_studio { min-height: 220px; }
+  .card_top, .card_top_back { padding: 10px 16px; }
+  .timeline_label { font-size: 6px; }
+  .pass_timeline { padding: 8px 16px; }
+}
+
+.spinner_apple {
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(0,0,0,0.1);
+  border-top-color: #007AFF;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.spinning {
+  animation: spin 1s linear infinite;
+}

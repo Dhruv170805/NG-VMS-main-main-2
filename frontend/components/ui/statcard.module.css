@@ -1,0 +1,93 @@
+.stat_card {
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  position: relative;
+  overflow: hidden;
+  border-radius: 32px;
+  border: 1px solid var(--glass-border);
+  background: rgba(255, 255, 255, 0.85);
+  transition: all 0.5s cubic-bezier(0.19, 1, 0.22, 1);
+  box-shadow: 0 15px 40px rgba(0,0,0,0.05), inset 0 1px 1px #fff;
+}
+
+.stat_card:hover {
+  border-color: rgba(255, 255, 255, 1);
+  box-shadow: 0 30px 60px rgba(0,0,0,0.1), inset 0 1px 1px #fff;
+}
+
+.stat_main {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  position: relative;
+  z-index: 2;
+}
+
+.stat_icon_wrap {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.8rem;
+  flex-shrink: 0;
+}
+
+.stat_content h3 {
+  font-size: 2.2rem;
+  margin: 0;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -1px;
+}
+
+.stat_content p {
+  font-size: 0.75rem;
+  margin: 2px 0 0;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  font-weight: 800;
+  opacity: 0.4;
+  color: var(--text-secondary);
+}
+
+.stat_liquid_bg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  opacity: 0.5;
+  transition: 0.4s;
+}
+
+.stat_card:hover .stat_liquid_bg {
+  opacity: 0.8;
+  transform: scale(1.1);
+}
+
+/* Specific Apple Colors */
+.approved h3 { color: #34C759; }
+.pending h3 { color: #FFCC00; }
+.checkin h3 { color: #007AFF; }
+.rejected h3 { color: #FF3B30; }
+
+.active_card {
+  border-color: rgba(0, 0, 0, 0.1) !important;
+  background: #ffffff !important;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.1), inset 0 1px 1px #fff !important;
+  transform: translateY(-5px);
+}
+
+.active_indicator {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 4px;
+  z-index: 10;
+}

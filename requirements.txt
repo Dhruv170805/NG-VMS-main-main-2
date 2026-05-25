@@ -1,0 +1,36 @@
+# --- NG-VMS ENTERPRISE AI PLATFORM: PYTHON LLM RUNNERS ---
+# Core requirements for sovereign agent orchestration and LLM inference.
+
+# Web Framework & API
+fastapi>=0.100.0
+uvicorn[standard]>=0.22.0
+pydantic>=2.0.0
+pydantic-settings
+
+# AI & LLM Orchestration
+langchain>=0.1.0
+langchain-community
+langchain-openai
+langchain-google-genai
+langchain-anthropic
+
+# Vector & Knowledge Graph
+pinecone-client
+neo4j
+
+# Database & Cache
+motor>=3.1.0  # Async MongoDB
+redis>=5.0.0
+
+# Observability (OpenTelemetry)
+opentelemetry-api
+opentelemetry-sdk
+opentelemetry-instrumentation-fastapi
+opentelemetry-exporter-otlp
+
+# Utilities
+python-dotenv
+httpx
+loguru
+numpy
+pandas

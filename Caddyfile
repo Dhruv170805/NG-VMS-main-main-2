@@ -1,0 +1,29 @@
+:80 {
+    # Compression
+    encode gzip zstd
+    
+    # Health check endpoint
+    respond /health 200
+
+    # Backend API
+    reverse_proxy /api/* backend:5000 {
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+    }
+
+    # WebSocket / Socket.IO
+    reverse_proxy /socket.io/* backend:5000
+
+    # Assets served directly from host volume
+    handle_path /assets/* {
+        root * /usr/share/caddy/assets
+        file_server
+    }
+
+    # Next.js static/build assets
+    reverse_proxy /_next/* frontend:3000
+    reverse_proxy /static/* frontend:3000
+
+    # Catch-all → Frontend
+    reverse_proxy * frontend:3000
+}

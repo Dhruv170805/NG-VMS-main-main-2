@@ -1,0 +1,10 @@
+node_modules
+.next
+dist
+.env*
+*.log
+.git
+.DS_Store
+coverage
+*.test.ts
+__tests__

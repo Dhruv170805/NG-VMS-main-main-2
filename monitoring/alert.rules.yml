@@ -1,0 +1,30 @@
+groups:
+  - name: ngvms_alerts
+    rules:
+      - alert: BackendDown
+        expr: up{job="ngvms_backend"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Backend API is down"
+          description: "The NG-VMS Backend API service is unreachable for more than 1 minute."
+
+      - alert: HighMemoryUsage
+        expr: (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100 < 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low Host Memory Available"
+          description: "Available host memory has dropped below 10% for more than 5 minutes."
+
+      - alert: HighCPUUsage
+        expr: 100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High Host CPU Load"
+          description: "Host CPU utilization has exceeded 85% for more than 5 minutes."
+

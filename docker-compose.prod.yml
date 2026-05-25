@@ -1,0 +1,249 @@
+services:
+
+  # ── MongoDB Replica Set ───────────────────────────────────────────────────
+  mongo:
+    image: mongo:6
+    container_name: ngvms_mongo
+    command: ["--replSet", "rs0", "--bind_ip_all", "--auth"]
+    restart: unless-stopped
+    networks: [ngvms_network]
+    volumes:
+      - mongo_data:/data/db
+      - mongo_config:/data/configdb
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:-ngvms_root}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?MONGO_ROOT_PASSWORD required}
+    healthcheck:
+      test: |
+        echo "try { rs.status() } catch(e) { rs.initiate({_id:'rs0',members:[{_id:0,host:'mongo:27017'}]}) }" | \
+        mongosh --quiet -u ${MONGO_ROOT_USER:-ngvms_root} -p ${MONGO_ROOT_PASSWORD} --authenticationDatabase admin
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    deploy:
+      resources:
+        limits: { memory: 2g }
+        reservations: { memory: 512m }
+
+  # ── Redis ─────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: ngvms_redis
+    restart: unless-stopped
+    networks: [ngvms_network]
+    volumes:
+      - redis_data:/data
+    command: >
+      redis-server
+      --appendonly yes
+      --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD required}
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits: { memory: 512m }
+
+  # ── MinIO ─────────────────────────────────────────────────────────────────
+  minio:
+    image: minio/minio:latest
+    container_name: ngvms_minio
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:?MINIO_SECRET_KEY required}
+      MINIO_BROWSER_REDIRECT_URL: http://localhost:9005
+    command: server /data --console-address ":9001"
+    restart: unless-stopped
+    networks: [ngvms_network]
+    volumes:
+      - minio_data:/data
+    ports:
+      - "9005:9001"   # MinIO console — firewall in prod
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits: { memory: 1g }
+
+  # ── SMTP Relay ────────────────────────────────────────────────────────────
+  smtp_relay:
+    image: maildev/maildev:latest
+    container_name: ngvms_smtp
+    restart: unless-stopped
+    networks: [ngvms_network]
+    ports:
+      - "127.0.0.1:1080:1080"   # bind to localhost only
+    deploy:
+      resources:
+        limits: { memory: 128m }
+
+  # ── Backend API ───────────────────────────────────────────────────────────
+  backend:
+    image: ngvms-backend:latest
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: runtime
+    container_name: ngvms_backend
+    restart: unless-stopped
+    networks: [ngvms_network]
+    environment:
+      NODE_ENV: production
+      PORT: "5000"
+      MONGODB_URI: mongodb://${MONGO_ROOT_USER:-ngvms_root}:${MONGO_ROOT_PASSWORD}@mongo:27017/ngvms?replicaSet=rs0&authSource=admin
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET required}
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: "9000"
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+      MINIO_BUCKET: ${MINIO_BUCKET:-ngvms-assets}
+      MINIO_USE_SSL: "false"
+      SMTP_HOST: smtp_relay
+      SMTP_PORT: "1025"
+      SMTP_FROM: ${SMTP_FROM:-no-reply@ng-vms.enterprise}
+      LICENSE_SECRET: ${LICENSE_SECRET:?LICENSE_SECRET required}
+      SKIP_HW_LOCK: ${SKIP_HW_LOCK:-false}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:?ENCRYPTION_KEY required}  # BUG FIX: was hardcoded in encryption.ts
+    volumes:
+      - .:/app/shared:ro
+    depends_on:
+      mongo: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      minio: { condition: service_healthy }
+    # No ports exposed — Caddy proxies to backend:5000
+    expose: ["5000", "9464"]
+    deploy:
+      resources:
+        limits: { memory: 1g, cpus: "1.0" }
+        reservations: { memory: 256m }
+    security_opt:
+      - no-new-privileges:true
+    read_only: false   # dist/ needs to be readable; tmp writes handled in memory
+
+  # ── Frontend ──────────────────────────────────────────────────────────────
+  frontend:
+    image: ngvms-frontend:latest
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: runtime
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-/api/v1}
+        NEXT_PUBLIC_SOCKET_URL: ${NEXT_PUBLIC_SOCKET_URL:-/}
+    container_name: ngvms_frontend
+    restart: unless-stopped
+    networks: [ngvms_network]
+    environment:
+      NODE_ENV: production
+    expose: ["3000"]
+    depends_on:
+      - backend
+    deploy:
+      resources:
+        limits: { memory: 512m, cpus: "0.5" }
+    security_opt:
+      - no-new-privileges:true
+
+  # ── Caddy Reverse Proxy ───────────────────────────────────────────────────
+  proxy:
+    image: caddy:2-alpine
+    container_name: ngvms_proxy
+    restart: unless-stopped
+    networks: [ngvms_network]
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./assets:/usr/share/caddy/assets:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - frontend
+      - backend
+    deploy:
+      resources:
+        limits: { memory: 128m }
+
+  # ── Prometheus ────────────────────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: ngvms_prometheus
+    restart: unless-stopped
+    networks: [ngvms_network]
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/alert.rules.yml:/etc/prometheus/alert.rules.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "127.0.0.1:9090:9090"   # localhost only
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=15d"
+      - "--web.enable-lifecycle"
+    deploy:
+      resources:
+        limits: { memory: 512m }
+
+  # ── Grafana ───────────────────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana-oss:latest
+    container_name: ngvms_grafana
+    restart: unless-stopped
+    networks: [ngvms_network]
+    ports:
+      - "127.0.0.1:3001:3000"   # localhost only
+    volumes:
+      - grafana_data:/var/lib/grafana
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:?GRAFANA_PASSWORD required}
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_SERVER_ROOT_URL: ${GRAFANA_URL:-http://localhost:3001}
+      GF_SECURITY_DISABLE_GRAVATAR: "true"
+    deploy:
+      resources:
+        limits: { memory: 256m }
+
+  # ── Alertmanager ──────────────────────────────────────────────────────────
+  alertmanager:
+    image: prom/alertmanager:latest
+    container_name: ngvms_alertmanager
+    restart: unless-stopped
+    networks: [ngvms_network]
+    volumes:
+      - ./monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_data:/alertmanager
+    ports:
+      - "127.0.0.1:9093:9093"
+    deploy:
+      resources:
+        limits: { memory: 128m }
+
+networks:
+  ngvms_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+volumes:
+  mongo_data:
+  mongo_config:
+  redis_data:
+  minio_data:
+  caddy_data:
+  caddy_config:
+  prometheus_data:
+  grafana_data:
+  alertmanager_data:
