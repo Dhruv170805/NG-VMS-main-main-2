@@ -58,6 +58,10 @@ describe('TEST_GENERATOR: Visitor Intake & Approval Workflows', () => {
     await Visitor.deleteMany({});
     await VisitorLog.deleteMany({});
 
+    // Ensure models are initialized and indexes are fully built to prevent catalog changes write conflict
+    await Visitor.init();
+    await VisitorLog.init();
+
     // Create test tenant
     testTenant = await Tenant.create({      name: 'Test Tenant',
       subdomain: 'test-tenant',

@@ -6,7 +6,12 @@ const mockInfo = vi.fn().mockResolvedValue('');
 const mockGet = vi.fn().mockResolvedValue(null);
 const mockSet = vi.fn().mockResolvedValue('OK');
 const mockDel = vi.fn().mockResolvedValue(1);
-const mockCall = vi.fn().mockResolvedValue(0);
+const mockCall = vi.fn().mockImplementation((cmd, ...args) => {
+  if (typeof cmd === 'string' && cmd.toLowerCase() === 'script') {
+    return Promise.resolve('mock-sha-hash');
+  }
+  return Promise.resolve(0);
+});
 const mockQuit = vi.fn().mockResolvedValue('OK');
 const mockDisconnect = vi.fn();
 
