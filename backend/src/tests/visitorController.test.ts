@@ -50,7 +50,7 @@ describe('TEST_GENERATOR: Visitor Intake & Approval Workflows', () => {
   let testTenant: any;
 
   beforeAll(async () => {
-    const url = process.env.MONGODB_URI || 'mongodb://localhost:27017/ng-vms-test-visitor';
+    const url = process.env.MONGODB_URI || 'mongodb://localhost:27017/ng-vms-test-visitor?retryWrites=false';
     await mongoose.connect(url);
 
     // Clean up

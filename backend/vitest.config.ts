@@ -11,7 +11,7 @@ export default defineConfig({
     setupFiles: ['./src/tests/setup-global.ts'],
     env: {
       NODE_ENV: 'test',
-      MONGODB_URI: 'mongodb://127.0.0.1:27017/ng-vms-test?directConnection=true',
+      MONGODB_URI: 'mongodb://127.0.0.1:27017/ng-vms-test?directConnection=true&retryWrites=false',
       JWT_SECRET: 'test-jwt-secret-key-that-is-very-long-and-secure',
       REDIS_URL: 'redis://127.0.0.1:6379',
       LICENSE_SECRET: 'default-secret-key-123',

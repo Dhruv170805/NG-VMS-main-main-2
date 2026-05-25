@@ -70,24 +70,48 @@ export class VisitorService {
       signatureHash: hash
     };
 
-    const session = await mongoose.startSession();
-    session.startTransaction();
+    // Try executing with a transaction if possible, fallback to non-transactional writes on standalone deployments
+    let session: any = null;
     try {
+      session = await mongoose.startSession();
+      session.startTransaction();
+      
       await visitor.save({ session });
-
       await VisitorLog.create([{
         visitorId: visitor._id,
         tenantId,
         event: 'Registered',
         details: 'Awaiting Guard review at Central Hub.'
       }], { session });
-
+      
       await session.commitTransaction();
-    } catch (error) {
-      await session.abortTransaction();
-      throw error;
-    } finally {
       session.endSession();
+    } catch (error: any) {
+      if (session) {
+        try {
+          await session.abortTransaction();
+        } catch (abortErr) {}
+        session.endSession();
+      }
+
+      const isUnsupported = 
+        error.message.includes('Transaction numbers are only allowed') ||
+        error.message.includes('does not support retryable writes') ||
+        error.message.includes('replica set') ||
+        error.code === 20;
+
+      if (isUnsupported) {
+        // Fallback to non-transactional write
+        await visitor.save();
+        await VisitorLog.create([{
+          visitorId: visitor._id,
+          tenantId,
+          event: 'Registered',
+          details: 'Awaiting Guard review at Central Hub.'
+        }]);
+      } else {
+        throw error;
+      }
     }
 
     if (photoUrl || idProofPhotoUrl) {

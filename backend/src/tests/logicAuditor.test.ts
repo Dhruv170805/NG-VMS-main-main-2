@@ -33,7 +33,7 @@ describe('Logic Auditor: Gate Security & Blacklist', () => {
   let testTenant: any;
 
   beforeAll(async () => {
-    const url = process.env.MONGODB_URI || 'mongodb://localhost:27017/ng-vms-test-logic';
+    const url = process.env.MONGODB_URI || 'mongodb://localhost:27017/ng-vms-test-logic?retryWrites=false';
     await mongoose.connect(url);
 
     // Clean up
