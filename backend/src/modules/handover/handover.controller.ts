@@ -13,7 +13,7 @@ export const getShiftStats: RequestHandler = async (req, res) => {
       user!.id, 
       tenantId!
     );
-    res.json(stats);
+    res.json({ success: true, summary: stats });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }

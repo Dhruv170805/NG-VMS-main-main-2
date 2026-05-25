@@ -1,19 +1,24 @@
 import mongoose from 'mongoose';
 import Blacklist from '../../models/Blacklist';
+import { CacheService } from '../../services/cache.service';
 
 export class BlacklistService {
   static async getBlacklist(search: any, tenantId: mongoose.Types.ObjectId) {
-    let query: any = { tenantId };
+    const cacheKey = CacheService.generateKey(tenantId.toString(), 'blacklist', search || 'all');
+    
+    return await CacheService.getOrSet(cacheKey, async () => {
+      let query: any = { tenantId };
 
-    if (search) {
-      query.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { company: { $regex: search, $options: 'i' } },
-        { reason: { $regex: search, $options: 'i' } }
-      ];
-    }
+      if (search) {
+        query.$or = [
+          { name: { $regex: search, $options: 'i' } },
+          { company: { $regex: search, $options: 'i' } },
+          { reason: { $regex: search, $options: 'i' } }
+        ];
+      }
 
-    return await Blacklist.find(query).sort({ createdAt: -1 });
+      return await Blacklist.find(query).sort({ createdAt: -1 });
+    });
   }
 
   static async toggleStatus(id: string, tenantId: mongoose.Types.ObjectId) {
@@ -22,6 +27,8 @@ export class BlacklistService {
     
     item.active = !item.active;
     await item.save();
+
+    await CacheService.invalidatePattern(`tenant:${tenantId}:blacklist:*`);
     return item;
   }
 
@@ -31,6 +38,7 @@ export class BlacklistService {
       throw new Error('Missing fields');
     }
 
+    let result;
     const existing = await Blacklist.findOne({ idNumberHash, tenantId });
     if (existing) {
       existing.active = true;
@@ -38,14 +46,19 @@ export class BlacklistService {
       existing.name = name;
       existing.company = company;
       existing.visitorId = visitorId;
-      return await existing.save();
+      result = await existing.save();
+    } else {
+      const item = new Blacklist({ idNumberHash, reason, name, company, visitorId, tenantId });
+      result = await item.save();
     }
 
-    const item = new Blacklist({ idNumberHash, reason, name, company, visitorId, tenantId });
-    return await item.save();
+    await CacheService.invalidatePattern(`tenant:${tenantId}:blacklist:*`);
+    return result;
   }
 
   static async removeFromBlacklist(id: string, tenantId: mongoose.Types.ObjectId) {
-    return await Blacklist.findOneAndDelete({ _id: id, tenantId });
+    const result = await Blacklist.findOneAndDelete({ _id: id, tenantId });
+    await CacheService.invalidatePattern(`tenant:${tenantId}:blacklist:*`);
+    return result;
   }
 }

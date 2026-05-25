@@ -150,7 +150,7 @@ export default function GuardTerminal() {
   const fetchShiftStats = useCallback(async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`${API_CONFIG.ENDPOINTS.ANALYTICS}/shift-summary?start=${shiftStartRef.current}`, {
+      const res = await fetch(`${API_CONFIG.ENDPOINTS.HANDOVER}/stats?gateId=MAIN_GATE&start=${shiftStartRef.current}`, {
         headers: { 
           'Authorization': `Bearer ${token}`,
           'x-tenant-id': getTenantId()
