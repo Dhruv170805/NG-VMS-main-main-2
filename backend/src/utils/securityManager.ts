@@ -166,22 +166,21 @@ export class SecurityManager {
           }
           rawData = this.decryptAES(decoded.enc);
         } else {
-          if (process.env.NODE_ENV === 'production') {
+          if (process.env.NODE_ENV === 'production' && !process.env.ALLOW_UNSIGNED_LICENSE) {
             return { valid: false, reason: 'Unsigned licenses are not allowed in production' };
           }
           // Assume direct JSON base64 (Unsigned)
           rawData = Buffer.from(licenseKey, 'base64').toString();
         }
         payload = JSON.parse(rawData);
-      } catch (e) {
-        if (process.env.NODE_ENV === 'production') {
+        } catch (e) {
+        if (process.env.NODE_ENV === 'production' && !process.env.ALLOW_UNSIGNED_LICENSE) {
           return { valid: false, reason: 'Signed license payload required in production' };
         }
         // Raw AES Mode (Encrypted string directly)
         rawData = this.decryptAES(licenseKey);
         payload = JSON.parse(rawData);
-      }
-      
+        }      
       // --- License Decryption Audit (dev only) ---
       if (process.env.NODE_ENV !== 'production') {
         console.log('🛡️ [SECURITY] NGS License Decrypted.');

@@ -25,6 +25,7 @@ services:
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
       LICENSE_SECRET: ${LICENSE_SECRET:-default-secret-key-123}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:-default-secret-key-123}
+      ALLOW_UNSIGNED_LICENSE: "true"
     depends_on:
       mongo:
         condition: service_healthy
