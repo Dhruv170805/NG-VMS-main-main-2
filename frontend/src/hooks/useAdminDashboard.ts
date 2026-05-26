@@ -1,7 +1,10 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import useSWR from 'swr';
 import { useRouter } from 'next/navigation';
+import { fetcher } from '../utils/fetcher';
 import { API_CONFIG, buildUrl } from '../../app/config';
 import { useTenant } from '../../app/TenantContext';
+import { useAuth } from '../../src/context/AuthContext';
 import { useSocketStore } from '../store';
 import { VisitorListResponseSchema } from '../schemas/visitorSchema';
 import { 
@@ -126,38 +129,13 @@ export const useAdminDashboard = () => {
     department: '',
     role: 'STAFF'
   });
-  const [user, setUser] = useState<any>(null);
+  const { user, isLoading } = useAuth();
   const [lastEvent, setLastEvent] = useState<string | null>(null);
 
-  // --- Data Fetching ---
-  const fetchVisitors = useCallback(async (signal?: AbortSignal, search?: string) => {
-    setLoading(prev => ({ ...prev, visitors: true }));
-    try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        router.push('/login');
-        return;
-      }
-      const fetchUrl = buildUrl(API_CONFIG.ENDPOINTS.VISITORS, {
-        limit: '500',
-        ...(search ? { search } : {}),
-      });
-
-      const res = await fetch(fetchUrl, {
-        headers: { 
-          'Authorization': `Bearer ${token}`,
-          'x-tenant-id': getTenantId()
-        },
-        credentials: 'include',
-        signal
-      });
-      
-      if (res.status === 401 || res.status === 403) {
-        router.push('/login');
-        return;
-      }
-
-      const response = await res.json();
+  // --- SWR Data Fetching ---
+  const visitorsUrl = activeTab === 'overview' ? buildUrl(API_CONFIG.ENDPOINTS.VISITORS, { limit: '500', ...(searchQuery ? { search: searchQuery } : {}) }) : null;
+  const { isValidating: visitorsLoading, mutate: mutateVisitors } = useSWR(visitorsUrl, fetcher, {
+    onSuccess: (response) => {
       try {
         const validated = VisitorListResponseSchema.parse(response);
         const visitorData = validated.data || [];
@@ -168,88 +146,81 @@ export const useAdminDashboard = () => {
           setVisitors(visitorData.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
         }
       }
-    } catch (err: any) {
-      if (err.name !== 'AbortError') console.error('Failed to fetch visitors', err);
-    } finally {
-      setLoading(prev => ({ ...prev, visitors: false }));
+    },
+    onError: (err) => {
+      if (err.status === 401 || err.status === 403) router.push('/login');
     }
-  }, [router, getTenantId]);
+  });
 
-  const fetchAnalytics = useCallback(async (signal?: AbortSignal) => {
-    setLoading(prev => ({ ...prev, analytics: true }));
-    try {
-      const token = localStorage.getItem('token');
-      const headers = { 
-        'Authorization': `Bearer ${token}`,
-        'x-tenant-id': getTenantId()
-      };
-      const fetchOptions = { headers, credentials: 'include' as const, signal };
-      
-      const [trafficRes, purposesRes, hostsRes, hourlyRes, dailyRes, statusRes] = await Promise.all([
-        fetch(`${API_CONFIG.ENDPOINTS.ANALYTICS}/traffic?days=${analyticsTimeRange}`, fetchOptions),
-        fetch(`${API_CONFIG.ENDPOINTS.ANALYTICS}/purposes`, fetchOptions),
-        fetch(`${API_CONFIG.ENDPOINTS.ANALYTICS}/hosts`, fetchOptions),
-        fetch(`${API_CONFIG.ENDPOINTS.ANALYTICS}/hourly-density`, fetchOptions),
-        fetch(`${API_CONFIG.ENDPOINTS.ANALYTICS}/daily-distribution`, fetchOptions),
-        fetch(`${API_CONFIG.ENDPOINTS.ANALYTICS}/status-distribution`, fetchOptions)
-      ]);
+  const staffUrl = activeTab === 'staff' ? buildUrl(API_CONFIG.ENDPOINTS.EMPLOYEES, { ...(matrixSearch ? { search: matrixSearch } : {}) }) : null;
+  const { isValidating: staffLoading, mutate: mutateUsers } = useSWR(staffUrl, fetcher, {
+    onSuccess: (data) => { if (Array.isArray(data)) setUsers(data); },
+    onError: (err) => { if (err.status === 401 || err.status === 403) router.push('/login'); }
+  });
 
-      if (trafficRes.status === 401 || trafficRes.status === 403) {
-        router.push('/login');
-        return;
-      }
+  const blacklistUrl = activeTab === 'blacklist' ? buildUrl(API_CONFIG.ENDPOINTS.BLACKLIST, { ...(blacklistSearch ? { search: blacklistSearch } : {}) }) : null;
+  const { isValidating: blacklistLoading, mutate: mutateBlacklist } = useSWR(blacklistUrl, fetcher, {
+    onSuccess: (data) => { if (Array.isArray(data)) setBlacklist(data); },
+    onError: (err) => { if (err.status === 401 || err.status === 403) router.push('/login'); }
+  });
 
-      const results = await Promise.all([
-        trafficRes.ok && trafficRes.headers.get("content-type")?.includes("application/json") ? trafficRes.json() : Promise.resolve([]),
-        purposesRes.ok && purposesRes.headers.get("content-type")?.includes("application/json") ? purposesRes.json() : Promise.resolve([]),
-        hostsRes.ok && hostsRes.headers.get("content-type")?.includes("application/json") ? hostsRes.json() : Promise.resolve([]),
-        hourlyRes.ok && hourlyRes.headers.get("content-type")?.includes("application/json") ? hourlyRes.json() : Promise.resolve([]),
-        dailyRes.ok && dailyRes.headers.get("content-type")?.includes("application/json") ? dailyRes.json() : Promise.resolve([]),
-        statusRes.ok && statusRes.headers.get("content-type")?.includes("application/json") ? statusRes.json() : Promise.resolve([])
-      ]);
-
-      setAnalyticsData({ 
-        traffic: results[0], 
-        purposes: results[1], 
-        hosts: results[2],
-        hourly: results[3],
-        daily: results[4],
-        statusDist: results[5]
+  const settingsUrl = activeTab === 'settings' ? `${API_CONFIG.ENDPOINTS.SYSTEM}/settings` : null;
+  const { isValidating: settingsLoading } = useSWR(settingsUrl, fetcher, {
+    onSuccess: (data) => {
+      if (data.notifications) setNotificationSettings(data.notifications);
+      if (data.smtp_config) setSmtpConfig(data.smtp_config);
+      if (data.allowed_purposes) setPurposesText(data.allowed_purposes.join(', '));
+      if (data.pass_rules) setPassRulesText(data.pass_rules.join('\n'));
+      if (data.emergency_contact) setEmergencyContact(data.emergency_contact);
+      if (data.guard_config) setGuardConfig({
+        autoScan: false, folderName: '', printMode: 'DIGITAL_ONLY', requireAadhaar: false, ...data.guard_config
       });
-    } catch (err: any) {
-      if (err.name !== 'AbortError') console.error('Failed to fetch analytics', err);
-    } finally {
-      setLoading(prev => ({ ...prev, analytics: false }));
     }
-  }, [router, analyticsTimeRange, getTenantId]);
+  });
 
-  const fetchUsers = useCallback(async (signal?: AbortSignal, search?: string) => {
-    setLoading(prev => ({ ...prev, staff: true }));
-    try {
-      const token = localStorage.getItem('token');
-      const fetchUrl = buildUrl(API_CONFIG.ENDPOINTS.EMPLOYEES, {
-        ...(search ? { search } : {}),
+  const licenseUrl = activeTab === 'settings' ? `${API_CONFIG.ENDPOINTS.SYSTEM}/license` : null;
+  const { isValidating: licenseLoading, mutate: mutateLicense } = useSWR(licenseUrl, fetcher, {
+    onSuccess: (data) => setLicenseInfo(data)
+  });
+
+  const analyticsTrafficUrl = activeTab === 'analytics' ? `${API_CONFIG.ENDPOINTS.ANALYTICS}/traffic?days=${analyticsTimeRange}` : null;
+  const { data: analyticsTraffic, isValidating: analyticsLoading1 } = useSWR(analyticsTrafficUrl, fetcher);
+  const { data: analyticsPurposes, isValidating: analyticsLoading2 } = useSWR(activeTab === 'analytics' ? `${API_CONFIG.ENDPOINTS.ANALYTICS}/purposes` : null, fetcher);
+  const { data: analyticsHosts, isValidating: analyticsLoading3 } = useSWR(activeTab === 'analytics' ? `${API_CONFIG.ENDPOINTS.ANALYTICS}/hosts` : null, fetcher);
+  const { data: analyticsHourly, isValidating: analyticsLoading4 } = useSWR(activeTab === 'analytics' ? `${API_CONFIG.ENDPOINTS.ANALYTICS}/hourly-density` : null, fetcher);
+  const { data: analyticsDaily, isValidating: analyticsLoading5 } = useSWR(activeTab === 'analytics' ? `${API_CONFIG.ENDPOINTS.ANALYTICS}/daily-distribution` : null, fetcher);
+  const { data: analyticsStatus, isValidating: analyticsLoading6 } = useSWR(activeTab === 'analytics' ? `${API_CONFIG.ENDPOINTS.ANALYTICS}/status-distribution` : null, fetcher);
+
+  useEffect(() => {
+    if (activeTab === 'analytics') {
+      setAnalyticsData({
+        traffic: analyticsTraffic || [],
+        purposes: analyticsPurposes || [],
+        hosts: analyticsHosts || [],
+        hourly: analyticsHourly || [],
+        daily: analyticsDaily || [],
+        statusDist: analyticsStatus || []
       });
-
-      const res = await fetch(fetchUrl, {
-        headers: { 
-          'Authorization': `Bearer ${token}`,
-          'x-tenant-id': getTenantId()
-        },
-        credentials: 'include',
-        signal
-      });
-
-      if (res.ok && res.headers.get("content-type")?.includes("application/json")) {
-        const data = await res.json();
-        if (Array.isArray(data)) setUsers(data);
-      }
-    } catch (err: any) {
-      if (err.name !== 'AbortError') console.error('Failed to fetch users', err);
-    } finally {
-      setLoading(prev => ({ ...prev, staff: false }));
     }
-  }, [getTenantId]);
+  }, [activeTab, analyticsTraffic, analyticsPurposes, analyticsHosts, analyticsHourly, analyticsDaily, analyticsStatus]);
+
+  useEffect(() => {
+    setLoading(prev => ({
+      ...prev,
+      visitors: visitorsLoading,
+      staff: staffLoading,
+      blacklist: blacklistLoading,
+      settings: settingsLoading,
+      license: licenseLoading,
+      analytics: analyticsLoading1 || analyticsLoading2 || analyticsLoading3 || analyticsLoading4 || analyticsLoading5 || analyticsLoading6
+    }));
+  }, [visitorsLoading, staffLoading, blacklistLoading, settingsLoading, licenseLoading, analyticsLoading1, analyticsLoading2, analyticsLoading3, analyticsLoading4, analyticsLoading5, analyticsLoading6]);
+
+  // Compatibility fetcher wrapper for manual calls like Socket updates
+  const fetchVisitors = useCallback(async () => { mutateVisitors(); }, [mutateVisitors]);
+  const fetchUsers = useCallback(async () => { mutateUsers(); }, [mutateUsers]);
+  const fetchBlacklist = useCallback(async () => { mutateBlacklist(); }, [mutateBlacklist]);
+  const fetchLicense = useCallback(async () => { mutateLicense(); }, [mutateLicense]);
 
   // --- Socket Integration ---
   useEffect(() => {
@@ -282,113 +253,21 @@ export const useAdminDashboard = () => {
 
   // --- Auth Guard ---
   useEffect(() => {
-    const userData = localStorage.getItem('user');
-    if (userData) {
-      try {
-        const parsed = JSON.parse(userData);
-        if (parsed.role !== 'ADMIN') {
-          if (parsed.role === 'GUARD') router.push('/guard');
-          else router.push('/approval');
-          return;
-        }
-        setUser(parsed);
-      } catch (e) {
-        router.push('/login');
-      }
-    } else {
+    if (isLoading) return; // Wait for initial /me auth fetch to complete
+    
+    if (!user) {
       router.push('/login');
+      return;
     }
-  }, [router]);
-
-  const fetchBlacklist = useCallback(async (signal?: AbortSignal, search?: string) => {
-    setLoading(prev => ({ ...prev, blacklist: true }));
-    try {
-      const token = localStorage.getItem('token');
-      const fetchUrl = buildUrl(API_CONFIG.ENDPOINTS.BLACKLIST, {
-        ...(search ? { search } : {}),
-      });
-
-      const res = await fetch(fetchUrl, {
-        headers: { 
-          'Authorization': `Bearer ${token}`,
-          'x-tenant-id': getTenantId()
-        },
-        credentials: 'include',
-        signal
-      });
-
-      if (res.status === 401 || res.status === 403) {
-        router.push('/login');
-        return;
-      }
-
-      if (res.ok && res.headers.get("content-type")?.includes("application/json")) {
-        const data = await res.json();
-        if (Array.isArray(data)) setBlacklist(data);
-      }
-    } catch (err: any) {
-      if (err.name !== 'AbortError') console.error('Blacklist fetch failed', err);
-    } finally {
-      setLoading(prev => ({ ...prev, blacklist: false }));
+    
+    if (user.role !== 'ADMIN') {
+      if (user.role === 'GUARD') router.push('/guard');
+      else router.push('/approval');
+      return;
     }
-  }, [router, getTenantId]);
+  }, [router, user, isLoading]);
 
-  const fetchSettings = useCallback(async (signal?: AbortSignal) => {
-    setLoading(prev => ({ ...prev, settings: true }));
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${API_CONFIG.ENDPOINTS.SYSTEM}/settings`, {
-        headers: { 
-          'Authorization': `Bearer ${token}`,
-          'x-tenant-id': getTenantId()
-        },
-        credentials: 'include',
-        signal
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.notifications) setNotificationSettings(data.notifications);
-        if (data.smtp_config) setSmtpConfig(data.smtp_config);
-        if (data.allowed_purposes) setPurposesText(data.allowed_purposes.join(', '));
-        if (data.pass_rules) setPassRulesText(data.pass_rules.join('\n'));
-        if (data.emergency_contact) setEmergencyContact(data.emergency_contact);
-        if (data.guard_config) setGuardConfig({
-          autoScan: false,
-          folderName: '',
-          printMode: 'DIGITAL_ONLY',
-          requireAadhaar: false,
-          ...data.guard_config
-        });
-      }
-    } catch (err: any) {
-      if (err.name !== 'AbortError') console.error('Failed to fetch settings', err);
-    } finally {
-      setLoading(prev => ({ ...prev, settings: false }));
-    }
-  }, [getTenantId]);
 
-  const fetchLicense = useCallback(async (signal?: AbortSignal) => {
-    setLoading(prev => ({ ...prev, license: true }));
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${API_CONFIG.ENDPOINTS.SYSTEM}/license`, {
-        headers: { 
-          'Authorization': `Bearer ${token}`,
-          'x-tenant-id': getTenantId()
-        },
-        credentials: 'include',
-        signal
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setLicenseInfo(data);
-      }
-    } catch (err: any) {
-      if (err.name !== 'AbortError') console.error('Failed to fetch license', err);
-    } finally {
-      setLoading(prev => ({ ...prev, license: false }));
-    }
-  }, [getTenantId]);
 
   const handleUpdateLicense = async (licenseKey: string) => {
     setLoading(prev => ({ ...prev, license: true }));
@@ -421,37 +300,8 @@ export const useAdminDashboard = () => {
     }
   };
 
-  // --- Effects ---
-  useEffect(() => {
-    const controller = new AbortController();
-    if (activeTab === 'overview') fetchVisitors(controller.signal);
-    if (activeTab === 'analytics') fetchAnalytics(controller.signal);
-    if (activeTab === 'staff') fetchUsers(controller.signal);
-    if (activeTab === 'blacklist') fetchBlacklist(controller.signal);
-    if (activeTab === 'settings') {
-      fetchSettings(controller.signal);
-      fetchLicense(controller.signal);
-    }
-    return () => controller.abort();
-  }, [activeTab, fetchVisitors, fetchAnalytics, fetchUsers, fetchBlacklist, fetchSettings, fetchLicense]);
+  // --- SWR already handles fetching based on state, these effects are no longer needed ---
 
-  useEffect(() => {
-    if (activeTab !== 'overview') return;
-    const timer = setTimeout(() => fetchVisitors(undefined, searchQuery), 500);
-    return () => clearTimeout(timer);
-  }, [searchQuery, activeTab, fetchVisitors]);
-
-  useEffect(() => {
-    if (activeTab !== 'staff') return;
-    const timer = setTimeout(() => fetchUsers(undefined, matrixSearch), 500);
-    return () => clearTimeout(timer);
-  }, [matrixSearch, activeTab, fetchUsers]);
-
-  useEffect(() => {
-    if (activeTab !== 'blacklist') return;
-    const timer = setTimeout(() => fetchBlacklist(undefined, blacklistSearch), 500);
-    return () => clearTimeout(timer);
-  }, [blacklistSearch, activeTab, fetchBlacklist]);
 
   // --- Handlers ---
   const handleLogout = async () => {

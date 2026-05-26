@@ -12,6 +12,7 @@ import { STATUS_LABELS } from '../constants';
 
 import { useSocketStore, useHostStore } from '../../src/store';
 import { useTenant } from '../TenantContext';
+import { useAuth } from '../../src/context/AuthContext';
 
 import { HostHeader } from '../../components/approval/HostHeader';
 import { VisitorGrid } from '../../components/approval/VisitorGrid';
@@ -61,7 +62,7 @@ const EmployeeApproval: React.FC = () => {
     setActiveVisitor, setTimeline, setVisitors
   } = useHostStore();
 
-  const [user, setUser] = useState<any>(null);
+  const { user, isLoading: authLoading } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [modalType, setModalType] = useState<'REJECT' | 'MEET_OUT' | 'APPROVE' | null>(null);
@@ -74,18 +75,17 @@ const EmployeeApproval: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    const userData = localStorage.getItem('user');
-    if (!token || !userData) {
+    if (authLoading) return; // Wait for initial /me auth fetch to complete
+    
+    if (!user) {
       router.push('/login');
       return;
     }
-    const parsedUser = JSON.parse(userData);
-    setUser(parsedUser);
-    connect(token);
-    fetchHostVisitors(parsedUser.id || parsedUser._id);
-    fetchHostHistory(parsedUser.id || parsedUser._id);
-  }, [router, connect, fetchHostVisitors, fetchHostHistory]);
+    
+    connect();
+    fetchHostVisitors(user.id || user._id);
+    fetchHostHistory(user.id || user._id);
+  }, [router, connect, fetchHostVisitors, fetchHostHistory, user, authLoading]);
 
   useEffect(() => {
     if (!socket || !user) return;

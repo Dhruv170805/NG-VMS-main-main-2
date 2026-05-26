@@ -44,4 +44,14 @@ export class HandoverService {
 
     return await handover.save();
   }
+
+  static async getLatestHandover(gateId: string, tenantId: mongoose.Types.ObjectId) {
+    // Only return handovers from the last 24 hours to prevent stale notes from popping up
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    return await Handover.findOne({
+      tenantId,
+      gateId,
+      createdAt: { $gte: twentyFourHoursAgo }
+    }).sort({ createdAt: -1 });
+  }
 }

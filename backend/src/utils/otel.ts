@@ -14,8 +14,8 @@ import { diag, DiagConsoleLogger, DiagLogLevel } from '@opentelemetry/api';
 diag.setLogger(new DiagConsoleLogger(), DiagLogLevel.WARN);
 
 const prometheusExporter = new PrometheusExporter({
-  port: 9464,
-  host: '0.0.0.0', // Explicitly bind to IPv4
+  port: parseInt(process.env.OTEL_METRICS_PORT || '9464', 10),
+  host: process.env.OTEL_METRICS_HOST || '0.0.0.0', // Explicitly bind to IPv4
 });
 
 const sdk = new NodeSDK({
@@ -51,5 +51,6 @@ export const shutdownTracing = async () => {
 
 export const startOtel = () => {
   sdk.start();
-  console.log('AETHER Runtime Intelligence (OTEL) Active at :9464');
+  const port = process.env.OTEL_METRICS_PORT || '9464';
+  console.log(`AETHER Runtime Intelligence (OTEL) Active at :${port}`);
 };

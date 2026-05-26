@@ -7,17 +7,19 @@ function isAllowedCsrfOrigin(originOrReferer: string | undefined): boolean {
   try {
     const url = new URL(originOrReferer);
     const hostname = url.hostname;
-    const isIp = /^\d{1,3}(?:\.\d{1,3}){3}$/.test(hostname) || hostname.includes(':') || hostname === 'localhost' || hostname === '127.0.0.1';
-    if (isIp) return true;
 
     const baseFrontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
     const baseDomain = baseFrontendUrl.replace(/^https?:\/\//, '').split(':')[0];
+    const extraOrigins = process.env.EXTRA_ALLOWED_ORIGINS ? process.env.EXTRA_ALLOWED_ORIGINS.split(',') : [];
 
     const allowedOrigins = new Set(
       [
         baseFrontendUrl,
-        'http://localhost:3000',
-        'http://localhost:8080',
+        ...(process.env.NODE_ENV !== 'production' ? [
+          'http://localhost:3000',
+          'http://localhost:8080',
+        ] : []),
+        ...extraOrigins,
         process.env.CORS_EXTRA_ORIGIN,
       ].filter(Boolean)
     );

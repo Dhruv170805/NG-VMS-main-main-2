@@ -5,12 +5,13 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { Html5Qrcode } from 'html5-qrcode';
 import Webcam from 'react-webcam';
-import { LogOut, XCircle, Menu } from 'lucide-react';
+import { LogOut, XCircle, Menu, Shield } from 'lucide-react';
 import { API_CONFIG, buildUrl } from '../config';
 import { useTenant } from '../TenantContext';
 
 // Global Store
 import { useAppStore } from '../../src/store';
+import { useAuth } from '../../src/context/AuthContext';
 
 // Types
 import { Visitor, ShiftStats } from '../../components/guard/types';
@@ -21,6 +22,7 @@ import { ScannerModule } from '../../components/guard/ScannerModule';
 import { VisitorDossier } from '../../components/guard/VisitorDossier';
 import { AadhaarQuickLook } from '../../components/guard/AadhaarQuickLook';
 import { QuickEntryForm } from '../../components/guard/QuickEntryForm';
+import { useVisitorQueries } from '../../src/hooks/useVisitorQueries';
 
 export default function GuardTerminal() {
   const router = useRouter();
@@ -44,7 +46,7 @@ export default function GuardTerminal() {
   const [auditHistory, setAuditHistory] = useState<Visitor[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [manualId, setManualId] = useState('');
-  const [user, setUser] = useState<any>(null);
+  const { user, isLoading: authLoading, logout } = useAuth();
   const [clock, setClock] = useState(new Date());
   const [mounted, setMounted] = useState(false);
   const [shiftStats, setShiftStats] = useState<ShiftStats | null>(null);
@@ -56,6 +58,10 @@ export default function GuardTerminal() {
   const [historyFilter, setHistoryFilter] = useState<any>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [showQuickEntry, setShowQuickEntry] = useState(false);
+  
+  // Previous Handover Note
+  const [showPreviousNotes, setShowPreviousNotes] = useState(false);
+  const [previousHandover, setPreviousHandover] = useState<any>(null);
   const [selectedPhoto, setSelectedPhoto] = useState<{ url: string, title: string, isAadhaar?: boolean, id?: string } | null>(null);
   const [previewScale, setPreviewScale] = useState(1);
   const [isPreviewZoomed, setIsPreviewZoomed] = useState(false);
@@ -102,6 +108,34 @@ export default function GuardTerminal() {
     }
   }, []);
 
+  // Keyboard Shortcuts (Power User UX)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if user is typing in an input or textarea
+      if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') {
+        return;
+      }
+
+      // Alt + N -> Open New Visitor Modal
+      if (e.altKey && e.key.toLowerCase() === 'n') {
+        e.preventDefault();
+        setShowQuickEntry(true);
+      }
+
+      // Esc -> Close Modals/Previews
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setShowQuickEntry(false);
+        setShowHandover(false);
+        setSelectedPhoto(null);
+        setIsPreviewZoomed(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   const fetchConfig = useCallback(async () => {
     try {
       const token = localStorage.getItem('token');
@@ -121,31 +155,25 @@ export default function GuardTerminal() {
     }
   }, [getTenantId]);
 
-  const fetchHistory = useCallback(async (signal?: AbortSignal, search?: string) => {
-    try {
-      setIsLoading(true);
-      const token = localStorage.getItem('token');
-      const fetchUrl = buildUrl(API_CONFIG.ENDPOINTS.VISITORS, {
-        limit: '50',
-        ...(search ? { search } : {}),
-      });
+  const { getVisitorsGql, getVisitorGql, searchRevisitorsGql } = useVisitorQueries();
 
-      const res = await fetch(fetchUrl, { 
-        headers: { 
-          'Authorization': `Bearer ${token}`,
-          'x-tenant-id': getTenantId()
-        }, 
-        signal, 
-        credentials: 'include' 
+  const fetchHistory = useCallback(async (signal?: AbortSignal, search?: string) => {
+    if (typeof window !== 'undefined' && !localStorage.getItem('token')) return;
+    setIsLoading(true);
+    try {
+      const { data } = await getVisitorsGql({
+        variables: {
+          search,
+          limit: 50
+        }
       });
-      const data = await res.json();
-      if (data.success) setAuditHistory(data.data);
-    } catch (err: any) {
-      if (err.name !== 'AbortError') console.error('History fetch failed', err);
+      if (data?.getVisitors) setAuditHistory(data.getVisitors.visitors);
+    } catch (err) {
+      console.error('GraphQL History fetch failed', err);
     } finally {
       setIsLoading(false);
     }
-  }, [getTenantId]);
+  }, [getVisitorsGql]);
 
   const fetchShiftStats = useCallback(async () => {
     try {
@@ -172,31 +200,52 @@ export default function GuardTerminal() {
   }, [fetchConfig]);
 
   useEffect(() => {
+    const fetchLatestHandover = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+        const res = await fetch(`${API_CONFIG.ENDPOINTS.HANDOVER}/latest?gateId=MAIN_GATE`, {
+          headers: { 
+            'Authorization': `Bearer ${token}`,
+            'x-tenant-id': getTenantId()
+          },
+          credentials: 'include'
+        });
+        const data = await res.json();
+        if (data.success && data.handover && data.handover.notes) {
+          setPreviousHandover(data.handover);
+          setShowPreviousNotes(true);
+        }
+      } catch (err) {
+        console.error('Failed to fetch previous handover', err);
+      }
+    };
+    fetchLatestHandover();
+  }, [getTenantId]);
+
+  useEffect(() => {
     const timer = setTimeout(() => fetchHistory(undefined, searchQuery), 500);
     return () => clearTimeout(timer);
   }, [searchQuery, fetchHistory]);
 
   useEffect(() => {
     const controller = new AbortController();
-    const token = localStorage.getItem('token');
-    const storedUser = localStorage.getItem('user');
-    
-    if (!token || !storedUser) {
+    if (authLoading) return; // Wait for initial /me auth fetch to complete
+
+    if (!user) {
       router.push('/login');
       return;
     }
     
-    const parsedUser = JSON.parse(storedUser);
-    if (parsedUser.role !== 'GUARD' && parsedUser.role !== 'ADMIN') {
+    if (user.role !== 'GUARD' && user.role !== 'ADMIN') {
       router.push('/');
       return;
     }
-    setUser(parsedUser);
     fetchHistory(controller.signal);
     fetchShiftStats();
     
     // Connect Global Socket
-    connectSocket(token);
+    connectSocket();
 
     return () => {
       controller.abort();
@@ -451,21 +500,14 @@ export default function GuardTerminal() {
   const handleVerification = async (id: string) => {
     setScanStatus('verifying');
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${API_CONFIG.ENDPOINTS.VISITORS}/${id}`, {
-        headers: { 
-          'Authorization': `Bearer ${token}`,
-          'x-tenant-id': getTenantId()
-        }, credentials: 'include'
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setVisitor(data);
+      const { data } = await getVisitorGql({ variables: { id } });
+      if (data?.getVisitor) {
+        setVisitor(data.getVisitor);
         setScanStatus('success');
         if (navigator.vibrate) navigator.vibrate([50, 20, 50]);
       } else {
         setScanStatus('error');
-        setErrorMsg(data.message || 'Invalid or expired pass');
+        setErrorMsg('Invalid or expired pass');
       }
     } catch (err) {
       setScanStatus('error');
@@ -567,17 +609,18 @@ export default function GuardTerminal() {
     if (!revisitSearch.trim()) return setRevisitResults([]);
     setIsSearchingRevisit(true);
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${API_CONFIG.ENDPOINTS.VISITORS}?search=${encodeURIComponent(revisitSearch)}&limit=5`, {
-        headers: { 
-          'Authorization': `Bearer ${token}`,
-          'x-tenant-id': getTenantId()
-        }, credentials: 'include'
+      const { data } = await searchRevisitorsGql({
+        variables: {
+          search: revisitSearch,
+          limit: 5
+        }
       });
-      const data = await res.json();
-      if (data.success) setRevisitResults(data.data);
-    } catch (err) { console.error(err); } 
-    finally { setIsSearchingRevisit(false); }
+      if (data?.getVisitors) setRevisitResults(data.getVisitors.visitors);
+    } catch (err) {
+      console.error('Revisitor search failed', err);
+    } finally {
+      setIsSearchingRevisit(false);
+    }
   };
 
   useEffect(() => {
@@ -629,7 +672,13 @@ export default function GuardTerminal() {
   }, [guardConfig.autoScan, visitor, isUploadingAadhaar, aadhaarReviewData]);
 
   const handleHandover = async () => {
-    if (!shiftStats) return;
+    // If shiftStats isn't loaded from API yet, fallback to locally calculated stats
+    const statsToSubmit = shiftStats || {
+      GATE_IN: summary.gate_in,
+      GATE_OUT: summary.gate_out,
+      DENIED: summary.rejected
+    };
+
     try {
       const token = localStorage.getItem('token');
       const res = await fetch(`${API_CONFIG.ENDPOINTS.HANDOVER}/submit`, {
@@ -643,7 +692,7 @@ export default function GuardTerminal() {
           gateId: 'MAIN_GATE', // Should be dynamic if multiple gates exist
           shiftStart: shiftStartRef.current,
           notes: handoverNotes,
-          stats: shiftStats
+          stats: statsToSubmit
         }),
         credentials: 'include'
       });
@@ -651,11 +700,17 @@ export default function GuardTerminal() {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         router.push('/login');
+      } else if (res.status === 401) {
+        alert('Session expired: Your login token is no longer valid. Forcing logout to unblock the terminal.');
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        router.push('/login');
       } else {
-        alert('Handover failed. Please try again.');
+        const errorData = await res.json().catch(() => ({}));
+        alert(`Handover failed: ${errorData.message || errorData.error || res.statusText || 'Unknown error'}`);
       }
-    } catch (err) {
-      alert('Network error during handover.');
+    } catch (err: any) {
+      alert(`Network error during handover: ${err.message}`);
     }
   };
 
@@ -663,70 +718,94 @@ export default function GuardTerminal() {
 
   return (
     <div className="guard_terminal">
-      <header className={`terminal_nav glass_panel`}>
+      <header className={`terminal_nav glass_panel`} role="banner">
         <div className="terminal_brand" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <button className="hamburger_btn_global" onClick={() => setIsSidebarOpen(!isSidebarOpen)}>
+          <button 
+            className="hamburger_btn_global" 
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            aria-label={isSidebarOpen ? "Close history sidebar" : "Open history sidebar"}
+            aria-expanded={isSidebarOpen}
+          >
             <Menu size={24} />
           </button>
-          {tenant?.logoUrl && (
-            <img src={tenant.logoUrl} alt={tenant.name} width={28} height={28} style={{ objectFit: 'contain' }} />
-          )}
-          <div className="status_pulse" />
+          
+          <div className="glass-card" style={{ padding: '8px 12px', display: 'flex', alignItems: 'center', gap: '10px', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '14px' }}>
+            <div style={{ width: '48px', height: '48px', background: 'rgba(255,255,255,0.1)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              {tenant?.logoUrl ? (
+                <img src={tenant.logoUrl} alt={`${tenant?.name || 'Tenant'} Logo`} width={36} height={36} style={{ objectFit: 'contain', borderRadius: '6px' }} />
+              ) : (
+                <Shield size={26} color="var(--apple-blue)" />
+              )}
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <span style={{ fontWeight: 800, fontSize: '0.9rem', letterSpacing: '-0.3px', lineHeight: 1.2, color: 'white' }}>{tenant?.name || 'VMS'} Security</span>
+              <span style={{ fontSize: '0.6rem', color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 700, lineHeight: 1.2 }}>Guard: {user?.name || 'Loading...'}</span>
+            </div>
+          </div>
+
           <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <span>{tenant?.name || 'VMS'} <strong>Security</strong></span>
-            <span style={{ fontSize: '0.65rem', opacity: 0.6, fontWeight: 700, textTransform: 'uppercase' }}>Guard: {user?.name || 'Loading...'}</span>
             <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-              <button className="glass-btn primary" onClick={() => setShowQuickEntry(true)} style={{ background: 'var(--apple-blue)', padding: '6px 12px', fontSize: '0.65rem', fontWeight: 900, width: 'fit-content' }}>
+              <button 
+                className="glass-btn primary" 
+                onClick={(e) => { e.stopPropagation(); setShowQuickEntry(true); }} 
+                style={{ background: 'var(--apple-blue)', padding: '6px 12px', fontSize: '0.65rem', fontWeight: 900, width: 'fit-content', display: 'flex', alignItems: 'center', gap: '4px' }}
+                aria-label="Register New Visitor"
+                title="Shortcut: Alt + N"
+              >
                 + NEW VISITOR
               </button>
             </div>
           </div>
         </div>
 
-        <div className="terminal_stats">
-          <div className={`stat_pill ${historyFilter === 'ALL' ? 'active_filter' : ''}`} onClick={() => setHistoryFilter('ALL')}>
+        <div className="terminal_stats" role="navigation" aria-label="Filter visitors by status">
+          <button className={`stat_pill ${historyFilter === 'ALL' ? 'active_filter' : ''}`} onClick={() => setHistoryFilter('ALL')} aria-pressed={historyFilter === 'ALL'}>
              APPLIED <strong>{summary.applied}</strong>
-          </div>
-          <div className={`stat_pill pending_pill ${historyFilter === 'PENDING' ? 'active_filter' : ''}`} onClick={() => setHistoryFilter('PENDING')}>
+          </button>
+          <button className={`stat_pill pending_pill ${historyFilter === 'PENDING' ? 'active_filter' : ''}`} onClick={() => setHistoryFilter('PENDING')} aria-pressed={historyFilter === 'PENDING'}>
              PENDING <strong>{summary.pending}</strong>
-          </div>
-          <div className={`stat_pill forwarded_pill ${historyFilter === 'SENT_FOR_APPROVAL' ? 'active_filter' : ''}`} onClick={() => setHistoryFilter('SENT_FOR_APPROVAL')}>
+          </button>
+          <button className={`stat_pill forwarded_pill ${historyFilter === 'SENT_FOR_APPROVAL' ? 'active_filter' : ''}`} onClick={() => setHistoryFilter('SENT_FOR_APPROVAL')} aria-pressed={historyFilter === 'SENT_FOR_APPROVAL'}>
              FORWARDED <strong>{summary.forwarded}</strong>
-          </div>
-          <div className={`stat_pill approved_pill ${historyFilter === 'APPROVED' ? 'active_filter' : ''}`} onClick={() => setHistoryFilter('APPROVED')}>
+          </button>
+          <button className={`stat_pill approved_pill ${historyFilter === 'APPROVED' ? 'active_filter' : ''}`} onClick={() => setHistoryFilter('APPROVED')} aria-pressed={historyFilter === 'APPROVED'}>
              APPROVED <strong>{summary.approved}</strong>
-          </div>
-          <div className={`stat_pill rejected_pill ${historyFilter === 'REJECTED' ? 'active_filter' : ''}`} onClick={() => setHistoryFilter('REJECTED')}>
+          </button>
+          <button className={`stat_pill rejected_pill ${historyFilter === 'REJECTED' ? 'active_filter' : ''}`} onClick={() => setHistoryFilter('REJECTED')} aria-pressed={historyFilter === 'REJECTED'}>
              REJECTED <strong>{summary.rejected}</strong>
-          </div>
-          <div className={`stat_pill gate_in_pill ${historyFilter === 'GATE_IN' ? 'active_filter' : ''}`} onClick={() => setHistoryFilter('GATE_IN')}>
+          </button>
+          <button className={`stat_pill gate_in_pill ${historyFilter === 'GATE_IN' ? 'active_filter' : ''}`} onClick={() => setHistoryFilter('GATE_IN')} aria-pressed={historyFilter === 'GATE_IN'}>
              GATE IN <strong>{summary.gate_in}</strong>
-          </div>
-          <div className={`stat_pill meet_in_pill ${historyFilter === 'MEET_IN' ? 'active_filter' : ''}`} onClick={() => setHistoryFilter('MEET_IN')}>
+          </button>
+          <button className={`stat_pill meet_in_pill ${historyFilter === 'MEET_IN' ? 'active_filter' : ''}`} onClick={() => setHistoryFilter('MEET_IN')} aria-pressed={historyFilter === 'MEET_IN'}>
              MEET IN <strong>{summary.meet_in}</strong>
-          </div>
-          <div className={`stat_pill meet_out_pill ${historyFilter === 'MEET_OUT' ? 'active_filter' : ''}`} onClick={() => setHistoryFilter('MEET_OUT')}>
+          </button>
+          <button className={`stat_pill meet_out_pill ${historyFilter === 'MEET_OUT' ? 'active_filter' : ''}`} onClick={() => setHistoryFilter('MEET_OUT')} aria-pressed={historyFilter === 'MEET_OUT'}>
              MEET OUT <strong>{summary.meet_out}</strong>
-          </div>
-          <div className={`stat_pill gate_out_pill ${historyFilter === 'GATE_OUT' ? 'active_filter' : ''}`} onClick={() => setHistoryFilter('GATE_OUT')}>
+          </button>
+          <button className={`stat_pill gate_out_pill ${historyFilter === 'GATE_OUT' ? 'active_filter' : ''}`} onClick={() => setHistoryFilter('GATE_OUT')} aria-pressed={historyFilter === 'GATE_OUT'}>
              GATE OUT <strong>{summary.gate_out}</strong>
-          </div>
-          <div className={`stat_pill overdue_pill ${historyFilter === 'OVERSTAY' ? 'active_filter' : ''}`} onClick={() => setHistoryFilter('OVERSTAY')}>
+          </button>
+          <button className={`stat_pill overdue_pill ${historyFilter === 'OVERSTAY' ? 'active_filter' : ''}`} onClick={() => setHistoryFilter('OVERSTAY')} aria-pressed={historyFilter === 'OVERSTAY'}>
              OVER STAY <strong>{summary.overdue}</strong>
-          </div>
+          </button>
         </div>
 
         <div className="terminal_clock_hub">
-          <div className="t_clock_main">
-            {clock.getHours().toString().padStart(2, '0')}
-            <span className="clock_blink">:</span>
-            {clock.getMinutes().toString().padStart(2, '0')}
-          </div>
+            <div className="t_clock_main" style={{ display: 'flex', alignItems: 'baseline', gap: '2px' }}>
+              <span>{clock.getHours().toString().padStart(2, '0')}</span>
+              <span className="clock_blink" style={{ margin: '0 4px' }}>:</span>
+              <span>{clock.getMinutes().toString().padStart(2, '0')}</span>
+              <span className="clock_blink" style={{ margin: '0 4px' }}>:</span>
+              <span>
+                {clock.getSeconds().toString().padStart(2, '0')}
+              </span>
+            </div>
           <div className="t_clock_date">{clock.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase()}</div>
         </div>
 
-        <button className="glass-btn end_shift_btn" onClick={() => setShowHandover(true)}>
-          <LogOut size={16} /> END SHIFT
+        <button className="glass-btn secondary" onClick={() => { fetchShiftStats(); setShowHandover(true); }} style={{ padding: '12px 24px', fontSize: '0.85rem', fontWeight: 900 }}>
+          HANDOVER SHIFT
         </button>
       </header>
 
@@ -769,7 +848,7 @@ export default function GuardTerminal() {
           />
         </motion.div>
 
-        <div className="operational_zone">
+        <div className="operational_zone" aria-live="polite">
           <div className="kiosk_scanner glass_panel">
             <ScannerModule 
               scanStatus={scanStatus}
@@ -815,9 +894,9 @@ export default function GuardTerminal() {
             <motion.div className={`handover_modal glass_panel`} initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }}>
               <h2>Shift Handover</h2>
               <div className="shift_summary_grid">
-                <div className="summary_item"><span>GATE INS</span><strong>{shiftStats?.GATE_IN}</strong></div>
-                <div className="summary_item"><span>GATE OUTS</span><strong>{shiftStats?.GATE_OUT}</strong></div>
-                <div className="summary_item"><span>DENIED</span><strong>{shiftStats?.DENIED}</strong></div>
+                <div className="summary_item"><span>GATE INS</span><strong>{shiftStats?.GATE_IN ?? summary.gate_in}</strong></div>
+                <div className="summary_item"><span>GATE OUTS</span><strong>{shiftStats?.GATE_OUT ?? summary.gate_out}</strong></div>
+                <div className="summary_item"><span>DENIED</span><strong>{shiftStats?.DENIED ?? summary.rejected}</strong></div>
               </div>
               <div className="notes_area">
                 <label>OPERATIONAL NOTES</label>
@@ -851,7 +930,11 @@ export default function GuardTerminal() {
                     <button className={`glass-btn ${activeRegTab === 'REVISIT' ? 'primary' : 'secondary'}`} onClick={() => setActiveRegTab('REVISIT')}>RE-VISITOR</button>
                   </div>
                 </div>
-                <button onClick={() => setShowQuickEntry(false)} style={{ background: 'none', border: 'none', color: 'var(--text-tertiary)', cursor: 'pointer' }}>
+                <button 
+                  onClick={() => setShowQuickEntry(false)} 
+                  style={{ background: 'none', border: 'none', color: 'var(--text-tertiary)', cursor: 'pointer' }}
+                  aria-label="Close quick entry form"
+                >
                   <XCircle size={28} />
                 </button>
               </div>
@@ -891,7 +974,13 @@ export default function GuardTerminal() {
                 <motion.div style={{ background: 'rgba(255, 255, 255, 0.9)', backdropFilter: 'blur(30px)', border: '1px solid rgba(255, 255, 255, 0.4)', borderRadius: '32px', width: '100%', maxWidth: '900px', overflow: 'hidden', boxShadow: '0 40px 100px rgba(0, 0, 0, 0.2)' }} onClick={e => e.stopPropagation()}>
                   <div style={{ padding: '24px 32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(0, 0, 0, 0.05)' }}>
                     <h3 style={{ fontSize: '1.4rem', fontWeight: 800, margin: 0 }}>{selectedPhoto.title}</h3>
-                    <button onClick={() => setSelectedPhoto(null)} style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(0, 0, 0, 0.05)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}><XCircle size={20} /></button>
+                    <button 
+                    onClick={() => setSelectedPhoto(null)} 
+                    style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(0, 0, 0, 0.05)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                    aria-label="Close photo preview"
+                  >
+                    <XCircle size={20} />
+                  </button>
                   </div>
                   <div style={{ padding: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f9f9f9', minHeight: '400px' }}>
                     <img src={selectedPhoto.url} alt={selectedPhoto.title} style={{ maxWidth: '100%', maxHeight: '70vh', borderRadius: '16px', boxShadow: '0 20px 40px rgba(0, 0, 0, 0.1)', border: '1px solid rgba(0, 0, 0, 0.05)' }} />

@@ -6,7 +6,7 @@ export interface SocketSlice {
   socket: Socket | null;
   isConnected: boolean;
   error: string | null;
-  connectSocket: (token: string) => void;
+  connectSocket: (token?: string) => void;
   disconnectSocket: () => void;
   emitSocket: (event: string, data: any) => void;
 }
@@ -16,7 +16,7 @@ export const createSocketSlice: StateCreator<SocketSlice> = (set, get) => ({
   isConnected: false,
   error: null,
 
-  connectSocket: (token: string) => {
+  connectSocket: (token?: string) => {
     const { socket } = get();
     if (socket?.connected) return;
     if (socket) {

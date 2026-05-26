@@ -47,7 +47,12 @@ import bootstrapRoutes from './modules/bootstrap/bootstrap.routes';
 import { BootstrapService } from './modules/bootstrap/bootstrap.service';
 import { setNotificationIO } from './utils/notificationService';
 import { tenantMiddleware } from './middleware/tenantMiddleware';
+import { protect } from './middleware/authMiddleware';
 import { errorHandler } from './middleware/errorHandler';
+
+import { ApolloServer } from '@apollo/server';
+import { expressMiddleware } from '@as-integrations/express5';
+import { typeDefs, resolvers } from './graphql/schema';
 
 export const app = express();
 app.set('trust proxy', 1);
@@ -56,12 +61,16 @@ export const server = http.createServer(app);
 // CORS — support dynamic subdomains
 const baseFrontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
 const baseDomain = baseFrontendUrl.replace(/^https?:\/\//, '').split(':')[0];
+const extraOrigins = process.env.EXTRA_ALLOWED_ORIGINS ? process.env.EXTRA_ALLOWED_ORIGINS.split(',') : [];
 
 const allowedOrigins = new Set(
   [
     baseFrontendUrl,
-    'http://localhost:3000',
-    'http://localhost:8080',
+    ...(process.env.NODE_ENV !== 'production' ? [
+      'http://localhost:3000',
+      'http://localhost:8080',
+    ] : []),
+    ...extraOrigins,
     process.env.CORS_EXTRA_ORIGIN,
   ].filter(Boolean)
 );
@@ -104,7 +113,7 @@ const tenantKeyGenerator = (req: any) => {
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 1000,
+  max: parseInt(process.env.RATE_LIMIT_GLOBAL || '1000', 10),
   validate: { keyGeneratorIpFallback: false },
   // Skip rate limiting in testing environments or when explicitly disabled via environment
   // variables (e.g. to allow parallel Playwright workers to run without hitting 429 errors).
@@ -119,7 +128,7 @@ const limiter = rateLimit({
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 20,
+  max: parseInt(process.env.RATE_LIMIT_AUTH || '20', 10),
   validate: { keyGeneratorIpFallback: false },
   // Skip authentication rate limits for automated test runs or explicit bypass
   skip: () => process.env.NODE_ENV === 'test' || process.env.DISABLE_RATE_LIMITS === 'true',
@@ -140,12 +149,8 @@ const io = new Server(server, {
       }
       try {
         const hostname = new URL(origin).hostname;
-        const isIp = /^\d{1,3}(?:\.\d{1,3}){3}$/.test(hostname) || hostname.includes(':') || hostname === 'localhost' || hostname === '127.0.0.1';
         
-        if (isIp) {
-          callback(null, true);
-          return;
-        }
+        // Allowed domains check
         if (hostname === baseDomain || hostname.endsWith('.' + baseDomain)) {
           callback(null, true);
           return;
@@ -195,6 +200,28 @@ app.use('/api', limiter);
 app.use('/api/v1/auth/login', authLimiter);
 app.use('/api/auth/login', authLimiter);
 
+// GraphQL Integration
+const apolloServer = new ApolloServer({
+  typeDefs,
+  resolvers,
+});
+
+const startApollo = async () => {
+  await apolloServer.start();
+  app.use(
+    '/api/graphql',
+    tenantMiddleware,
+    protect,
+    expressMiddleware(apolloServer, {
+      context: async ({ req }) => ({
+        user: (req as any).user,
+        tenantId: (req as any).tenantId,
+      }),
+    })
+  );
+  logger.info('[NG-VMS] Apollo GraphQL Server mounted at /api/graphql');
+};
+
 // Make Socket.io available in controllers
 app.set('socketio', io);
 
@@ -227,12 +254,12 @@ mongoose
       // Check explicit environment variable first
       if (process.env.LICENSE_KEY_PATH && fs.existsSync(process.env.LICENSE_KEY_PATH)) {
         try {
-          const key = fs.readFileSync(process.env.LICENSE_KEY_PATH, 'utf8').trim();
-          if (key) {
+          const key = await fs.promises.readFile(process.env.LICENSE_KEY_PATH, 'utf8');
+          if (key && key.trim()) {
             const filename = path.basename(process.env.LICENSE_KEY_PATH);
             const match = filename.match(/^([a-zA-Z0-9_-]+)&([a-zA-Z0-9_-]+)_NGS\.lic$/i);
             const companyCode = match ? match[1] : 'demo';
-            foundLicenses.push({ path: process.env.LICENSE_KEY_PATH, filename, key, companyCode });
+            foundLicenses.push({ path: process.env.LICENSE_KEY_PATH, filename, key: key.trim(), companyCode });
           }
         } catch (err) {}
       }
@@ -241,17 +268,17 @@ mongoose
       for (const dir of searchDirs) {
         if (!fs.existsSync(dir)) continue;
         try {
-          const files = fs.readdirSync(dir);
+          const files = await fs.promises.readdir(dir);
           for (const file of files) {
             const isNgsLic = file.toLowerCase().endsWith('_ngs.lic');
             if (isNgsLic) {
               const fullPath = path.join(dir, file);
               try {
-                const key = fs.readFileSync(fullPath, 'utf8').trim();
-                if (key) {
+                const key = await fs.promises.readFile(fullPath, 'utf8');
+                if (key && key.trim()) {
                   const match = file.match(/^([a-zA-Z0-9_-]+)&([a-zA-Z0-9_-]+)_NGS\.lic$/i);
                   const companyCode = match ? match[1] : 'demo';
-                  foundLicenses.push({ path: fullPath, filename: file, key, companyCode });
+                  foundLicenses.push({ path: fullPath, filename: file, key: key.trim(), companyCode });
                 }
               } catch (err) {}
             }
@@ -304,7 +331,16 @@ mongoose
 
 // Socket.io Authentication Middleware
 io.use((socket, next) => {
-  const token = socket.handshake.auth?.token;
+  let token = socket.handshake.auth?.token;
+  
+  if (!token && socket.request.headers.cookie) {
+    const cookies = socket.request.headers.cookie.split(';').map(c => c.trim());
+    const tokenCookie = cookies.find(c => c.startsWith('token='));
+    if (tokenCookie) {
+      token = tokenCookie.split('=')[1];
+    }
+  }
+
   if (!token) {
     // Non-authenticated socket (e.g. public visitor viewing a pass)
     return next();
@@ -348,8 +384,11 @@ io.on('connection', (socket) => {
   let lastJoinTime = 0;
   let joinRequests = 0;
 
-  socket.on('join:visitor', async (visitorId: string) => {
+  socket.on('join:visitor', async (data: any) => {
     try {
+      const visitorId = typeof data === 'string' ? data : data.visitorId;
+      const socketToken = typeof data === 'object' ? data.socketToken : null;
+
       const now = Date.now();
       if (now - lastJoinTime < 5000) {
         joinRequests++;
@@ -369,6 +408,20 @@ io.on('connection', (socket) => {
         if (tenantId && tenantId.toString() !== visitor.tenantId.toString()) {
           return;
         }
+
+        // Unauthenticated users MUST provide a valid short-lived socket token
+        if (!tenantId) {
+          if (!socketToken) return;
+          try {
+            const decoded = jwt.verify(socketToken, process.env.JWT_SECRET as string) as any;
+            if (decoded.visitorId !== visitorId || decoded.type !== 'socket') {
+              return;
+            }
+          } catch (e) {
+            return;
+          }
+        }
+
         socket.join(`tenant_${visitor.tenantId}_visitor_${visitorId}`);
       }
     } catch (err) {
@@ -399,28 +452,46 @@ const registerRoutes = (prefix: string) => {
   app.use(`${prefix}/aadhaar`, aadhaarRoutes);
 };
 
-registerRoutes('/api/v1');
-registerRoutes('/api'); // legacy routing support
-
-// Catch-all 404 for API
-app.use('/api/v1', (req, res) => {
-  logger.warn(`[404] Missing API Endpoint: ${req.method} ${req.originalUrl}`);
-  res.status(404).json({ success: false, message: `API endpoint not found: ${req.originalUrl}` });
-});
-app.use('/api', (req, res) => {
-  logger.warn(`[404] Missing API Endpoint: ${req.method} ${req.originalUrl}`);
-  res.status(404).json({ success: false, message: `API endpoint not found: ${req.originalUrl}` });
-});
-
-// Health Check
-app.get('/health', (_req, res) =>
-  res.status(200).json({ status: 'healthy', version: '1.0.0', timestamp: new Date().toISOString() })
-);
-
-// Centralized error handler — must be last
-app.use(errorHandler);
-
 const PORT = Number(process.env.PORT) || 5000;
+
+const startServer = async () => {
+  try {
+    await startApollo();
+  } catch (err: any) {
+    logger.error({ err: err.message }, '[NG-VMS] Failed to start Apollo Server');
+  }
+
+  registerRoutes('/api/v1');
+  registerRoutes('/api'); // legacy routing support
+
+  // Catch-all 404 for API
+  app.use('/api/v1', (req, res) => {
+    logger.warn(`[404] Missing API Endpoint: ${req.method} ${req.originalUrl}`);
+    res.status(404).json({ success: false, message: `API endpoint not found: ${req.originalUrl}` });
+  });
+  app.use('/api', (req, res) => {
+    logger.warn(`[404] Missing API Endpoint: ${req.method} ${req.originalUrl}`);
+    res.status(404).json({ success: false, message: `API endpoint not found: ${req.originalUrl}` });
+  });
+
+  // Health Check
+  app.get('/health', (_req, res) =>
+    res.status(200).json({ status: 'healthy', version: '1.0.0', timestamp: new Date().toISOString() })
+  );
+
+  // Centralized error handler — must be last
+  app.use(errorHandler);
+
+  if (process.env.NODE_ENV !== 'test') {
+    server.listen(PORT, '0.0.0.0', () => {
+      logger.info(`[NG-VMS] Server running on http://127.0.0.1:${PORT}`);
+    });
+  }
+};
+
+startServer();
+
+// removed duplicate PORT
 
 // Graceful Shutdown
 const shutdown = async () => {
@@ -444,8 +515,4 @@ const shutdown = async () => {
 process.on('SIGTERM', shutdown);
 process.on('SIGINT', shutdown);
 
-if (process.env.NODE_ENV !== 'test') {
-  server.listen(PORT, '0.0.0.0', () => {
-    logger.info(`[NG-VMS] Server running on http://127.0.0.1:${PORT}`);
-  });
-}
+// Server listen is handled in startServer

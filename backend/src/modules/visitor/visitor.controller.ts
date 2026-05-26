@@ -7,39 +7,48 @@ import Employee from '../../models/Employee';
 import { notifyHostRegistration, notifyVisitorApproval, notifyHostArrival, notifyVisitorRejection, notifySecurityOverstay } from '../../utils/notificationService';
 import { TenantRequest, AuthRequest } from '../../types/requests';
 import { VisitorService } from './visitor.service';
+import jwt from 'jsonwebtoken';
 
 export const exportVisitors: RequestHandler = async (req, res) => {
   const { tenantId } = req as TenantRequest;
   try {
-    const visitors = await Visitor.find({ tenantId: tenantId! }).populate('hostId', 'name email department');
-    
-    const data = visitors.map(v => ({
-      'Visitor Name': v.name,
-      'Email': v.email,
-      'Phone': v.phone,
-      'Company': v.company || 'N/A',
-      'Purpose': v.purpose,
-      'Host Name': v.hostName,
-      'Status': v.status,
-      'Processed By (Guard)': v.processedBy || 'N/A',
-      'Gate-In': v.checkInTime ? new Date(v.checkInTime).toLocaleString() : 'N/A',
-      'Meet-In': v.meetInTime ? new Date(v.meetInTime).toLocaleString() : 'N/A',
-      'Meet-Out': v.meetOutTime ? new Date(v.meetOutTime).toLocaleString() : 'N/A',
-      'Gate-Out': v.checkOutTime ? new Date(v.checkOutTime).toLocaleString() : 'N/A',
-      'Created At': new Date(v.createdAt).toLocaleString()
-    }));
+    const cursor = Visitor.find({ tenantId: tenantId! })
+      .populate('hostId', 'name email department')
+      .cursor();
 
-    const worksheet = XLSX.utils.json_to_sheet(data);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Visitors');
+    res.setHeader('Content-Disposition', 'attachment; filename=visitor_audit.csv');
+    res.setHeader('Content-Type', 'text/csv');
 
-    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+    // Write CSV Headers
+    res.write('Visitor Name,Email,Phone,Company,Purpose,Host Name,Status,Processed By (Guard),Gate-In,Meet-In,Meet-Out,Gate-Out,Created At\n');
 
-    res.setHeader('Content-Disposition', 'attachment; filename=visitor_audit.xlsx');
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.send(buffer);
+    for await (const v of cursor) {
+      const row = [
+        v.name,
+        v.email,
+        v.phone,
+        v.company || 'N/A',
+        v.purpose,
+        v.hostName,
+        v.status,
+        v.processedBy || 'N/A',
+        v.checkInTime ? new Date(v.checkInTime).toLocaleString() : 'N/A',
+        v.meetInTime ? new Date(v.meetInTime).toLocaleString() : 'N/A',
+        v.meetOutTime ? new Date(v.meetOutTime).toLocaleString() : 'N/A',
+        v.checkOutTime ? new Date(v.checkOutTime).toLocaleString() : 'N/A',
+        new Date(v.createdAt).toLocaleString()
+      ].map(field => `"${String(field || '').replace(/"/g, '""')}"`).join(',');
+      
+      res.write(row + '\n');
+    }
+
+    res.end();
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+    if (!res.headersSent) {
+      res.status(500).json({ success: false, message: error.message });
+    } else {
+      res.end();
+    }
   }
 };
 
@@ -151,11 +160,19 @@ export const getVisitors: RequestHandler = async (req, res) => {
 };
 
 export const getVisitorById: RequestHandler = async (req, res) => {
-  const { params, tenantId } = req as TenantRequest;
+  const { params, tenantId, user } = req as AuthRequest;
   try {
     const visitor = await VisitorService.getById(params.id as string, tenantId!);
-    if (visitor) return res.json(visitor);
-    res.status(404).json({ success: false, message: 'Visitor not found' });
+    if (!visitor) {
+      return res.status(404).json({ success: false, message: 'Visitor not found' });
+    }
+
+    // Enterprise Security: Restrict STAFF from viewing others' visitors
+    if (user?.role === 'STAFF' && visitor.hostId?.toString() !== user.id) {
+      return res.status(403).json({ success: false, message: 'Access denied: You can only view visitors hosted by you.' });
+    }
+
+    res.json(visitor);
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -166,6 +183,11 @@ export const lookupVisitor: RequestHandler = async (req, res) => {
   try {
     const visitor = await Visitor.findOne({ phone: (params.phone as string).trim(), tenantId: tenantId! }).sort({ createdAt: -1 });
     if (visitor) {
+      const socketToken = jwt.sign(
+        { visitorId: visitor._id.toString(), type: 'socket' },
+        process.env.JWT_SECRET as string,
+        { expiresIn: '15m' }
+      );
       res.json({
         success: true,
         visitor: {
@@ -174,7 +196,8 @@ export const lookupVisitor: RequestHandler = async (req, res) => {
           email: visitor.email,
           company: visitor.company || '',
           idProofType: visitor.idProofType || ''
-        }
+        },
+        socketToken
       });
     } else {
       res.json({ success: false, message: 'Not found' });
@@ -221,6 +244,13 @@ export const getVisitorPass: RequestHandler = async (req, res) => {
   try {
     const visitor = await VisitorService.getById(params.id as string, tenantId!);
     if (!visitor) return res.status(404).json({ success: false, message: 'Pass not found' });
+    
+    const socketToken = jwt.sign(
+      { visitorId: visitor._id.toString(), type: 'socket' },
+      process.env.JWT_SECRET as string,
+      { expiresIn: '15m' }
+    );
+
     res.json({
       _id: visitor._id,
       name: visitor.name,
@@ -231,6 +261,13 @@ export const getVisitorPass: RequestHandler = async (req, res) => {
       qrCode: visitor.qrCode,
       checkInTime: visitor.checkInTime,
       checkOutTime: visitor.checkOutTime,
+      photoUrl: visitor.photoUrl,
+      company: visitor.company,
+      requestedDuration: visitor.requestedDuration,
+      idProofType: visitor.idProofType,
+      createdAt: visitor.createdAt,
+      approvedAt: visitor.approvedAt,
+      socketToken
     });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });

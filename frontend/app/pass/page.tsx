@@ -12,6 +12,7 @@ import { PassCard } from '../../components/ui/PassCard';
 import { PassFooter } from '../../components/ui/PassFooter';
 import { AlertCircle, ArrowRight, Shield, Info, CheckCircle, Smartphone, Download, RotateCcw, RotateCw, Printer } from 'lucide-react';
 import styles from './pass.module.css';
+import { useAuth } from '../../src/context/AuthContext';
 
 // Socket connection
 const socket = io(API_CONFIG.SOCKET_URL, {
@@ -36,18 +37,7 @@ const DigitalPass: React.FC = () => {
   const [platform, setPlatform] = useState<'ios' | 'android' | 'desktop'>('desktop');
   const [adminRules, setAdminRules] = useState<string[]>([]);
   const [emergencyContact, setEmergencyContact] = useState<string>('Contact Command Center at ext. 911 or +91 12345 67890 immediately.');
-  const [user, setUser] = useState<any>(null);
-
-  useEffect(() => {
-    const userData = localStorage.getItem('user');
-    if (userData) {
-      try {
-        setUser(JSON.parse(userData));
-      } catch (e) {
-        console.error('Failed to parse user data');
-      }
-    }
-  }, []);
+  const { user } = useAuth();
 
   const isStaff = user && (['ADMIN', 'SUPER_ADMIN', 'HOST', 'RECEPTIONIST', 'GUARD', 'MANAGER', 'STAFF'].includes(user.role));
   const canPrintPass = user && 
@@ -88,7 +78,7 @@ const DigitalPass: React.FC = () => {
     const controller = new AbortController();
     const fetchVisitor = async (signal?: AbortSignal) => {
       try {
-        const res = await fetch(`${API_CONFIG.ENDPOINTS.VISITORS}/${visitorId}`, {
+        const res = await fetch(`${API_CONFIG.ENDPOINTS.VISITORS}/${visitorId}/pass`, {
           credentials: 'include',
           signal,
           headers: {
@@ -99,13 +89,13 @@ const DigitalPass: React.FC = () => {
         if (data) {
           setVisitor(data);
           setStatus(data.status || 'PENDING');
+          socket.emit('join:visitor', { visitorId, socketToken: data.socketToken });
         }
       } catch (err: any) {
         if (err.name !== 'AbortError') console.error('Failed to fetch visitor:', err);
       }
     };
     fetchVisitor(controller.signal);
-    socket.emit('join:visitor', visitorId);
     socket.on('status:update', (data: any) => {
       if (typeof data === 'string') {
         setStatus(data);

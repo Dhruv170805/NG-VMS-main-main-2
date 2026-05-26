@@ -19,6 +19,18 @@ export const getShiftStats: RequestHandler = async (req, res) => {
   }
 };
 
+export const getLatestHandover: RequestHandler = async (req, res) => {
+  const { query, tenantId } = req as AuthRequest;
+  const { gateId } = query;
+
+  try {
+    const handover = await HandoverService.getLatestHandover(gateId as string, tenantId!);
+    res.json({ success: true, handover });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 export const createHandover: RequestHandler = async (req, res) => {
   const { body, user, tenantId } = req as AuthRequest;
   try {

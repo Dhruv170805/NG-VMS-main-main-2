@@ -4,12 +4,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Webcam from 'react-webcam';
 import { useRouter } from 'next/navigation';
 import { QRCodeSVG } from 'qrcode.react';
-import Tesseract from 'tesseract.js';
 import { API_CONFIG } from '../config';
 import { useTenant } from '../TenantContext';
-import { 
-  User, Phone, Mail, Building, Target, Clock, Calendar, 
-  ShieldCheck, Camera, Search, RefreshCw, Briefcase, 
+import {
+  User, Phone, Mail, Building, Target, Clock, Calendar,
+  ShieldCheck, Camera, Search, RefreshCw, Briefcase,
   CheckCircle, Shield, ArrowRight, Zap, Heart
 } from 'lucide-react';
 
@@ -21,16 +20,16 @@ const VisitorRegistration: React.FC = () => {
   const { tenant, getTenantId } = useTenant();
   const [currentStep, setCurrentStep] = useState(1);
   const [isReturningVisitor, setIsReturningVisitor] = useState(false);
-  const [systemConfig, setSystemConfig] = useState<{ purposes: string[], hosts: any[], guard_config: any }>({ 
-    purposes: DEFAULT_PURPOSES, 
+  const [systemConfig, setSystemConfig] = useState<{ purposes: string[], hosts: any[], guard_config: any }>({
+    purposes: DEFAULT_PURPOSES,
     hosts: [],
     guard_config: { requireAadhaar: false }
   });
   const [formData, setFormData] = useState({
     name: '', phone: '', email: '', purpose: 'Meeting', customPurpose: '', hostName: '', hostId: '', company: '',
-    startDate: new Date().toISOString().split('T')[0], 
-    endDate: '', 
-    visitTime: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }), 
+    startDate: new Date().toISOString().split('T')[0],
+    endDate: '',
+    visitTime: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
     photoUrl: '',
     idProofType: 'PAN', idProofNumber: '', idProofPhotoUrl: '',
     requestedDuration: '1H',
@@ -56,7 +55,7 @@ const VisitorRegistration: React.FC = () => {
       setFormData(prev => ({ ...prev, idProofType: 'PAN' }));
     }
   }, [tenant]);
-  
+
   const webcamRef = useRef<Webcam>(null);
   const lookupRef = useRef<NodeJS.Timeout | null>(null);
   const router = useRouter();
@@ -92,22 +91,22 @@ const VisitorRegistration: React.FC = () => {
     const controller = new AbortController();
     const fetchConfig = async (signal?: AbortSignal) => {
       try {
-        const res = await fetch(`${API_CONFIG.ENDPOINTS.SYSTEM}/config`, { 
-          signal, 
+        const res = await fetch(`${API_CONFIG.ENDPOINTS.SYSTEM}/config`, {
+          signal,
           credentials: 'include',
           headers: {
             'x-tenant-id': getTenantId()
           }
         });
         const data = await res.json();
-        
+
         let initialHostId = '';
         let initialHostName = '';
 
         if (typeof window !== 'undefined') {
           const urlParams = new URLSearchParams(window.location.search);
           const queryHostId = urlParams.get('hostId');
-          
+
           if (queryHostId && data.hosts) {
             const matchedHost = data.hosts.find((h: any) => h._id === queryHostId);
             if (matchedHost) {
@@ -127,13 +126,13 @@ const VisitorRegistration: React.FC = () => {
           hosts: data.hosts || [],
           guard_config: { requireAadhaar: false, ...data.guard_config }
         });
-        
+
         if (initialHostId) {
           setFormData(prev => ({ ...prev, hostName: initialHostName, hostId: initialHostId }));
         }
-      } catch (err: any) { 
+      } catch (err: any) {
         if (err.name !== 'AbortError') {
-          console.error('Failed to fetch system config', err); 
+          console.error('Failed to fetch system config', err);
         }
       }
     };
@@ -165,17 +164,17 @@ const VisitorRegistration: React.FC = () => {
     });
   };
 
-  // Main Thread Detection Loop (Optimized with requestAnimationFrame)
+  // Main Thread Detection Loop (Optimized with throttle to prevent blocking)
   useEffect(() => {
     let isDetecting = false;
-    let animationFrameId: number;
+    let timerId: NodeJS.Timeout;
 
     const detect = async () => {
       if (!isDetecting && modelsLoaded && webcamRef.current?.video?.readyState === 4) {
         isDetecting = true;
         try {
           const detection = await faceapi.detectSingleFace(
-            webcamRef.current.video, 
+            webcamRef.current.video,
             new faceapi.TinyFaceDetectorOptions()
           );
           setFaceDetected(!!detection);
@@ -184,20 +183,21 @@ const VisitorRegistration: React.FC = () => {
         }
         isDetecting = false;
       }
-      animationFrameId = requestAnimationFrame(detect);
+      timerId = setTimeout(detect, 500); // Throttle to 2 FPS to save CPU
     };
 
     if (modelsLoaded) {
-      animationFrameId = requestAnimationFrame(detect);
+      timerId = setTimeout(detect, 500);
     }
 
-    return () => cancelAnimationFrame(animationFrameId);
+    return () => clearTimeout(timerId);
   }, [modelsLoaded]);
 
   const runOCR = useCallback(async (image: string) => {
     setIsOCRRunning(true);
     try {
-      // Tesseract.js uses Workers by default, but we ensure high-speed recognition
+      // Dynamically import Tesseract to prevent main bundle bloat
+      const Tesseract = (await import('tesseract.js')).default;
       const { data: { text } } = await Tesseract.recognize(image, 'eng');
       const matches = text.match(/\d{4}\s\d{4}\s\d{4}|\d{10,12}/);
       if (matches) {
@@ -218,9 +218,9 @@ const VisitorRegistration: React.FC = () => {
     const optimizedImage = await resizeImage(rawImage);
 
     if (captureMode === 'VISITOR') {
-      setFormData(prev => ({ 
-        ...prev, 
-        photoUrl: optimizedImage 
+      setFormData(prev => ({
+        ...prev,
+        photoUrl: optimizedImage
       }));
       if (navigator.vibrate) navigator.vibrate([10, 30, 10]);
     } else {
@@ -285,7 +285,7 @@ const VisitorRegistration: React.FC = () => {
         return;
       }
     }
- else if (formData.idProofType === 'PAN') {
+    else if (formData.idProofType === 'PAN') {
       const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/i;
       if (!panRegex.test(formData.idProofNumber.trim())) {
         alert('PAN number must be exactly 10 characters (e.g., ABCDE1234F)');
@@ -316,7 +316,7 @@ const VisitorRegistration: React.FC = () => {
     try {
       const res = await fetch(`${API_CONFIG.ENDPOINTS.VISITORS}/register`, {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'x-tenant-id': getTenantId()
         },
@@ -344,35 +344,44 @@ const VisitorRegistration: React.FC = () => {
   return (
     <div className="reg_page">
       <div className="bg-mesh" />
-      
+
       <div className="reg_layout">
-        
-        {/* CENTERED HEADER */}
-        <div className="reg_header_center">
-          <div className="reg_brand_center" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-            {tenant?.logoUrl && (
-              <img src={tenant.logoUrl} alt={tenant.name} width={28} height={28} style={{ objectFit: 'contain' }} />
-            )}
-            <span>{tenant?.name || 'NG-VMS'}</span>
+
+        {/* CENTERED HEADER CARD */}
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '30px', marginTop: '10px' }}>
+          <div className="glass-card" style={{ padding: '16px 24px', display: 'flex', alignItems: 'center', gap: '16px', background: 'rgba(255,255,255,0.7)', border: '1px solid rgba(255,255,255,0.9)', borderRadius: '24px', boxShadow: '0 8px 30px rgba(0,0,0,0.06)' }}>
+            <div style={{ width: '64px', height: '64px', background: '#fff', borderRadius: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.05)', flexShrink: 0 }}>
+              {tenant?.logoUrl ? (
+                <img src={tenant.logoUrl} alt="Logo" width={48} height={48} style={{ objectFit: 'contain', borderRadius: '8px' }} />
+              ) : (
+                <Shield size={32} color="var(--apple-blue)" />
+              )}
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', textAlign: 'left' }}>
+              <h1 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 800, letterSpacing: '-0.5px', color: 'var(--text-primary)' }}>{tenant?.name || 'Enterprise VMS'}</h1>
+              <span style={{ fontSize: '0.75rem', color: 'var(--apple-gray)', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 700 }}>Visitor Registration Protocol</span>
+            </div>
           </div>
-          <h1 className="reg_title_center">{greeting}!</h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '1.1rem', marginTop: '12px', fontWeight: 600 }}>Welcome to Visitor Registration</p>
+        </div>
+        <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+          <h1 className="reg_title_center" style={{ fontSize: '2rem', marginBottom: '8px' }}>{greeting}!</h1>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '1.1rem', fontWeight: 600, margin: 0 }}>Welcome to Visitor Registration</p>
         </div>
 
         {/* MAIN CONTENT */}
         <main className="reg_content">
           <AnimatePresence mode="wait">
             {!registeredId ? (
-              <motion.div 
-                key="single-form" 
-                initial={{ opacity: 0, y: 40 }} 
-                animate={{ opacity: 1, y: 0 }} 
-                exit={{ opacity: 0, y: -40 }} 
-                transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }} 
-                className="reg_card" 
+              <motion.div
+                key="single-form"
+                initial={{ opacity: 0, y: 40 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -40 }}
+                transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+                className="reg_card"
                 style={{ display: 'flex', flexDirection: 'column', gap: '48px' }}
               >
-                
+
                 {/* IDENTITY SECTION */}
                 <motion.div whileHover={{ scale: 1.01 }} transition={{ duration: 0.4, ease: "easeOut" }} className="reg_section" onFocusCapture={() => setCurrentStep(1)} onMouseEnter={() => setCurrentStep(1)}>
                   <div className="reg_section_header">
@@ -393,26 +402,26 @@ const VisitorRegistration: React.FC = () => {
 
                   <div className="reg_grid">
                     <div className="reg_input_wrapper">
-                      <Phone size={18} />
-                      <input 
-                        className="glass-input" 
-                        placeholder="Phone Number" 
-                        value={formData.phone} 
+                      <Phone size={18} aria-hidden="true" />
+                      <input
+                        className="glass-input"
+                        placeholder="Phone Number"
+                        value={formData.phone}
                         aria-label="Phone Number"
                         onChange={e => {
                           const val = e.target.value;
-                          setFormData(prev => ({...prev, phone: val}));
+                          setFormData(prev => ({ ...prev, phone: val }));
                           if (val.length >= 10) {
                             if (lookupRef.current) clearTimeout(lookupRef.current);
                             lookupRef.current = setTimeout(() => handleLookup(val), 500);
                           }
-                        }} 
+                        }}
                       />
-                      {isLookingUp && <RefreshCw size={16} className="spinning" style={{ position: 'absolute', right: 16 }} />}
+                      {isLookingUp && <RefreshCw size={16} className="spinning" style={{ position: 'absolute', right: 16 }} aria-label="Looking up visitor" role="status" />}
                     </div>
-                    <div className="reg_input_wrapper"><User size={18} /><input className="glass-input" placeholder="Full Name" value={formData.name} aria-label="Full Name" onChange={e => setFormData(prev => ({...prev, name: e.target.value}))} /></div>
-                    <div className="reg_input_wrapper"><Mail size={18} /><input className="glass-input" placeholder="Email Address" value={formData.email} aria-label="Email Address" onChange={e => setFormData(prev => ({...prev, email: e.target.value}))} /></div>
-                    <div className="reg_input_wrapper"><Building size={18} /><input className="glass-input" placeholder="Company Name" value={formData.company} aria-label="Company Name" onChange={e => setFormData(prev => ({...prev, company: e.target.value}))} /></div>
+                    <div className="reg_input_wrapper"><User size={18} aria-hidden="true" /><input className="glass-input" placeholder="Full Name" value={formData.name} aria-label="Full Name" onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))} /></div>
+                    <div className="reg_input_wrapper"><Mail size={18} aria-hidden="true" /><input className="glass-input" placeholder="Email Address" value={formData.email} aria-label="Email Address" onChange={e => setFormData(prev => ({ ...prev, email: e.target.value }))} /></div>
+                    <div className="reg_input_wrapper"><Building size={18} aria-hidden="true" /><input className="glass-input" placeholder="Company Name" value={formData.company} aria-label="Company Name" onChange={e => setFormData(prev => ({ ...prev, company: e.target.value }))} /></div>
                   </div>
                 </motion.div>
 
@@ -420,7 +429,7 @@ const VisitorRegistration: React.FC = () => {
                 <motion.div whileHover={{ scale: 1.01 }} transition={{ duration: 0.4, ease: "easeOut" }} className="reg_section" onFocusCapture={() => setCurrentStep(2)} onMouseEnter={() => setCurrentStep(2)}>
                   <div className="reg_section_header">
                     <h2 className="reg_section_title">
-                      <div className="icon_wrap icon_logistics"><Briefcase size={24} /></div>
+                      <div className="icon_wrap icon_logistics" aria-hidden="true"><Briefcase size={24} /></div>
                       02. Visit Details
                     </h2>
                     <p>Help us prepare for your arrival.</p>
@@ -428,34 +437,34 @@ const VisitorRegistration: React.FC = () => {
                   <div className="reg_grid">
                     <div className="reg_field">
                       <label htmlFor="reg-purpose"><Target size={12} /> PURPOSE</label>
-                      <select id="reg-purpose" className="glass-input" value={formData.purpose} onChange={e => setFormData(prev => ({...prev, purpose: e.target.value}))}>
+                      <select id="reg-purpose" className="glass-input" value={formData.purpose} onChange={e => setFormData(prev => ({ ...prev, purpose: e.target.value }))}>
                         <option value="">Select Purpose...</option>
                         {systemConfig.purposes.map(p => <option key={p} value={p}>{p}</option>)}
                       </select>
                     </div>
                     <div className="reg_field">
                       <label htmlFor="reg-host"><User size={12} /> MEET HOST</label>
-                      <select id="reg-host" className="glass-input" value={formData.hostId} onChange={e => { const host = systemConfig.hosts.find(h => h._id === e.target.value); setFormData(prev => ({...prev, hostId: e.target.value, hostName: host?.name || ''})); }}>
+                      <select id="reg-host" className="glass-input" value={formData.hostId} onChange={e => { const host = systemConfig.hosts.find(h => h._id === e.target.value); setFormData(prev => ({ ...prev, hostId: e.target.value, hostName: host?.name || '' })); }}>
                         {systemConfig.hosts.map(h => <option key={h._id} value={h._id}>{h.name} ({h.department})</option>)}
                       </select>
                     </div>
-                    
+
                     <div className="reg_field">
-                      <label htmlFor="reg-start-date"><Calendar size={12} /> FROM DATE</label>
-                      <div className="reg_input_wrapper"><Calendar size={16} /><input id="reg-start-date" type="date" className="glass-input" value={formData.startDate} onChange={e => setFormData(prev => ({...prev, startDate: e.target.value}))} /></div>
+                      <label htmlFor="reg-start-date"><Calendar size={12} aria-hidden="true" /> FROM DATE</label>
+                      <div className="reg_input_wrapper"><Calendar size={16} aria-hidden="true" /><input id="reg-start-date" type="date" className="glass-input" value={formData.startDate} aria-label="From Date" onChange={e => setFormData(prev => ({ ...prev, startDate: e.target.value }))} /></div>
                     </div>
                     <div className="reg_field">
-                      <label htmlFor="reg-end-date"><Calendar size={12} /> TO DATE</label>
-                      <div className="reg_input_wrapper"><Calendar size={16} /><input id="reg-end-date" type="date" className="glass-input" value={formData.endDate} onChange={e => setFormData(prev => ({...prev, endDate: e.target.value}))} /></div>
+                      <label htmlFor="reg-end-date"><Calendar size={12} aria-hidden="true" /> TO DATE</label>
+                      <div className="reg_input_wrapper"><Calendar size={16} aria-hidden="true" /><input id="reg-end-date" type="date" className="glass-input" value={formData.endDate} aria-label="To Date" onChange={e => setFormData(prev => ({ ...prev, endDate: e.target.value }))} /></div>
                     </div>
 
                     <div className="reg_field">
-                      <label htmlFor="reg-visit-time"><Clock size={12} /> ARRIVAL TIME</label>
-                      <div className="reg_input_wrapper"><Clock size={16} /><input id="reg-visit-time" type="time" className="glass-input" value={formData.visitTime} onChange={e => setFormData(prev => ({...prev, visitTime: e.target.value}))} /></div>
+                      <label htmlFor="reg-visit-time"><Clock size={12} aria-hidden="true" /> ARRIVAL TIME</label>
+                      <div className="reg_input_wrapper"><Clock size={16} aria-hidden="true" /><input id="reg-visit-time" type="time" className="glass-input" value={formData.visitTime} aria-label="Arrival Time" onChange={e => setFormData(prev => ({ ...prev, visitTime: e.target.value }))} /></div>
                     </div>
                     <div className="reg_field">
-                      <label htmlFor="reg-duration"><Clock size={12} /> DURATION</label>
-                      <select id="reg-duration" className="glass-input" value={formData.requestedDuration} onChange={e => setFormData(prev => ({...prev, requestedDuration: e.target.value}))}>
+                      <label htmlFor="reg-duration"><Clock size={12} aria-hidden="true" /> DURATION</label>
+                      <select id="reg-duration" className="glass-input" value={formData.requestedDuration} aria-label="Visit Duration" onChange={e => setFormData(prev => ({ ...prev, requestedDuration: e.target.value }))}>
                         <option value="1H">1 Hour</option>
                         <option value="2H">2 Hours</option>
                         <option value="3H">3 Hours</option>
@@ -471,7 +480,7 @@ const VisitorRegistration: React.FC = () => {
                 <motion.div whileHover={{ scale: 1.01 }} transition={{ duration: 0.4, ease: "easeOut" }} className="reg_section" onFocusCapture={() => setCurrentStep(3)} onMouseEnter={() => setCurrentStep(3)}>
                   <div className="reg_section_header">
                     <h2 className="reg_section_title">
-                      <div className="icon_wrap icon_security"><Shield size={24} /></div>
+                      <div className="icon_wrap icon_security" aria-hidden="true"><Shield size={24} /></div>
                       03. Biometrics & ID
                     </h2>
                     <p>Secure your identity with a photo and ID proof.</p>
@@ -480,11 +489,11 @@ const VisitorRegistration: React.FC = () => {
                   <div className="reg_grid" style={{ marginBottom: '24px' }}>
                     <div className="reg_field">
                       <label htmlFor="reg-id-type"><ShieldCheck size={12} /> ID TYPE</label>
-                      <select 
+                      <select
                         id="reg-id-type"
-                        className="glass-input" 
-                        value={formData.idProofType} 
-                        onChange={e => setFormData(prev => ({...prev, idProofType: e.target.value, idProofNumber: ''}))}
+                        className="glass-input"
+                        value={formData.idProofType}
+                        onChange={e => setFormData(prev => ({ ...prev, idProofType: e.target.value, idProofNumber: '' }))}
                       >
                         {tenant?.features.aadhaar && <option value="Aadhaar Card">Aadhaar Card</option>}
                         {!(systemConfig?.guard_config?.requireAadhaar) && (
@@ -499,7 +508,7 @@ const VisitorRegistration: React.FC = () => {
                     </div>
                     <div className="reg_field">
                       <label htmlFor="reg-id-number"><ShieldCheck size={12} /> ID NUMBER</label>
-                      <input id="reg-id-number" className="glass-input" placeholder="Enter ID Number" value={formData.idProofNumber} onChange={e => setFormData(prev => ({...prev, idProofNumber: e.target.value}))} />
+                      <input id="reg-id-number" className="glass-input" placeholder="Enter ID Number" value={formData.idProofNumber} onChange={e => setFormData(prev => ({ ...prev, idProofNumber: e.target.value }))} />
                     </div>
                   </div>
 
@@ -532,29 +541,35 @@ const VisitorRegistration: React.FC = () => {
 
                   <div className="reg_webcam_viewport">
                     <Webcam audio={false} ref={webcamRef} screenshotFormat="image/jpeg" className="webcam_element" mirrored={false} videoConstraints={{ aspectRatio: 1, facingMode: 'user' }} />
-                    
+
                     {/* HUD ELEMENTS */}
                     <div className="hud_bracket hud_tl" />
                     <div className="hud_bracket hud_tr" />
                     <div className="hud_bracket hud_bl" />
                     <div className="hud_bracket hud_br" />
                     <div className="hud_scanline" />
-                    
+
                     {faceDetected && captureMode === 'VISITOR' && <div className="face_pulse" />}
                   </div>
 
                   <div style={{ display: 'flex', justifyContent: 'center', marginTop: '-12px' }}>
-                    <button className="glass-btn primary shimmer_btn" onClick={performCapture} style={{ width: '220px', borderRadius: '50px', padding: '16px 0', fontSize: '1.1rem', boxShadow: '0 10px 30px rgba(0,0,0,0.3)', zIndex: 20 }}>
-                      <Camera size={20} fill="white" /> Capture
+                    <button
+                      className="glass-btn primary shimmer_btn"
+                      onClick={performCapture}
+                      style={{ width: '220px', borderRadius: '50px', padding: '16px 0', fontSize: '1.1rem', boxShadow: '0 10px 30px rgba(0,0,0,0.3)', zIndex: 20 }}
+                      aria-label="Capture Photo"
+                    >
+                      <Camera size={24} style={{ marginRight: '8px' }} /> CAPTURE
                     </button>
+
                   </div>
                 </motion.div>
 
                 <div className="reg_consent_container" style={{ padding: '0 12px' }}>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '0.95rem', lineHeight: '1.4' }}>
-                    <input 
-                      type="checkbox" 
-                      checked={formData.consentGiven} 
+                    <input
+                      type="checkbox"
+                      checked={formData.consentGiven}
                       onChange={e => setFormData(prev => ({ ...prev, consentGiven: e.target.checked }))}
                       style={{ width: '20px', height: '20px', cursor: 'pointer', accentColor: 'var(--apple-blue)' }}
                     />

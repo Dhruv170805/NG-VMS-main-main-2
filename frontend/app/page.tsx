@@ -11,6 +11,7 @@ import {
   AlertCircle, CheckCircle2, Loader2, LogIn, Smartphone
 } from 'lucide-react';
 import styles from './home.module.css';
+import { useAuth } from '../src/context/AuthContext';
 
 // --- SUB-COMPONENTS (Defined outside to prevent re-creation flicker) ---
 
@@ -37,6 +38,7 @@ const MagneticButton = ({ children, className, style, ...props }: any) => {
 const Home = () => {
   const router = useRouter();
   const { tenant, getTenantId } = useTenant();
+  const { setUser } = useAuth();
   const [regUrl, setRegUrl] = useState('');
   
   // Login State
@@ -104,21 +106,21 @@ const Home = () => {
       const data = await res.json();
 
       if (res.ok) {
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('user', JSON.stringify({
+        setUser({
           id: data._id,
           name: data.name,
           email: data.email,
           role: data.role,
           department: data.department
-        }));
-        
+        });
+
         if (data.role === 'ADMIN') router.push('/admin');
         else if (data.role === 'GUARD') router.push('/guard');
         else router.push('/approval');
       } else {
         setLoginError(data.message || 'Authentication failed');
       }
+
     } catch (err) {
       setLoginError('Server connection failed');
     } finally {
@@ -166,22 +168,28 @@ const Home = () => {
         initial="hidden"
         animate="visible"
         variants={containerVariants}
+        style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}
       >
         <motion.div 
           variants={titleVariants} 
-          className={styles.logo_wrap}
+          style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px', marginTop: '10px' }}
         >
-          {tenant?.logoUrl ? (
-            <>
-              <img src={tenant.logoUrl} alt={tenant.name} width={50} height={50} />
-              <span>{tenant.name}</span>
-            </>
-          ) : (
-            <span>{tenant?.name || 'NextGen VMS'}</span>
-          )}
+          <div className="glass-card" style={{ padding: '16px 24px', display: 'flex', alignItems: 'center', gap: '16px', background: 'rgba(255,255,255,0.7)', border: '1px solid rgba(255,255,255,0.9)', borderRadius: '24px', boxShadow: '0 8px 30px rgba(0,0,0,0.06)' }}>
+            <div style={{ width: '64px', height: '64px', background: '#fff', borderRadius: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.05)', flexShrink: 0 }}>
+              {tenant?.logoUrl ? (
+                <img src={tenant.logoUrl} alt={tenant.name} width={48} height={48} style={{ objectFit: 'contain', borderRadius: '8px' }} />
+              ) : (
+                <ShieldCheck size={36} color="var(--apple-blue)" />
+              )}
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', textAlign: 'left' }}>
+              <h1 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 800, letterSpacing: '-0.5px', color: 'var(--text-primary)' }}>{tenant?.name || 'Enterprise VMS'}</h1>
+              <span style={{ fontSize: '0.75rem', color: 'var(--apple-gray)', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 700 }}>Workspace Portal</span>
+            </div>
+          </div>
         </motion.div>
-        <motion.p variants={titleVariants} style={{ opacity: 0.6, marginTop: '8px' }}>
-          Welcome to the {tenant?.name || 'NextGen VMS'}. Please proceed.
+        <motion.p variants={titleVariants} style={{ opacity: 0.6, marginTop: '8px', fontWeight: 600 }}>
+          Welcome to the {tenant?.name || 'Enterprise VMS'}. Please select a portal to proceed.
         </motion.p>
       </motion.header>
 

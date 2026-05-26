@@ -47,6 +47,7 @@ export interface IVisitor extends Document {
   guardSignature?: ISignature;
   hostSignature?: ISignature;
   createdAt: Date;
+  updatedAt: Date;
 }
 
 const VisitorSchema: Schema = new Schema({

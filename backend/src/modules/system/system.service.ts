@@ -179,7 +179,8 @@ export class SystemService {
     const data = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]) as any[];
 
     const salt = await bcrypt.genSalt(10);
-    const defaultPassword = await bcrypt.hash('Welcome@123', salt);
+    const defaultPasswordStr = process.env.DEFAULT_HOST_PASSWORD || 'Welcome@123';
+    const defaultPassword = await bcrypt.hash(defaultPasswordStr, salt);
 
     const employees = data.map(item => ({
       name: item.name || item.HostName || '',

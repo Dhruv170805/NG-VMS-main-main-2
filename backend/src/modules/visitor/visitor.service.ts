@@ -282,7 +282,12 @@ export class VisitorService {
 
     if (hostId) query.hostId = hostId;
     if (status) {
-      query.status = Array.isArray(status) ? { $in: status } : status;
+      // Enterprise Security: Sanitize status to prevent NoSQL injection via object payloads
+      if (Array.isArray(status)) {
+        query.status = { $in: status.filter(s => typeof s === 'string') };
+      } else if (typeof status === 'string') {
+        query.status = status;
+      }
     }
 
     if (search) {

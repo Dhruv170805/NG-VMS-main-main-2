@@ -59,7 +59,12 @@ export class SecurityManager {
 
   private constructor() {
     // AES Secret Key (256-bit)
-    this.secretKey = (process.env.LICENSE_SECRET || 'default-secret-key-1234567890123456').substring(0, 32);
+    const secret = process.env.LICENSE_SECRET;
+    if (!secret && process.env.NODE_ENV !== 'test') {
+       console.error('FATAL: LICENSE_SECRET environment variable is missing.');
+       process.exit(1);
+    }
+    this.secretKey = (secret || 'default-secret-key-1234567890123456').substring(0, 32);
     
     // RSA Public Key (Standard PEM)
     const publicKeyPath = path.join(process.cwd(), 'public.pem');

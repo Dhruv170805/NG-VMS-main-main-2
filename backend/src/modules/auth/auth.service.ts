@@ -13,22 +13,27 @@ export class AuthService {
       throw new Error('FATAL ERROR: JWT_SECRET must be defined');
     }
     
-    // Access Token: Short-lived (15 minutes)
+    const accessExpire = process.env.JWT_ACCESS_EXPIRE || '15m';
+    const refreshExpire = process.env.JWT_REFRESH_EXPIRE || '30d';
+
+    // Access Token: Short-lived (Configurable, Default 15 minutes)
     const accessToken = jwt.sign({ id, name, role, tenantId }, secret, {
-      expiresIn: '15m',
+      expiresIn: accessExpire as any,
     });
 
-    // Refresh Token: Long-lived (30 days)
+    // Refresh Token: Long-lived (Configurable, Default 30 days)
     const refreshToken = jwt.sign({ id, name, role, tenantId, type: 'refresh' }, secret, {
-      expiresIn: '30d',
+      expiresIn: refreshExpire as any,
     });
 
     // Hash token for secure storage in Redis
     const tokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
     const redisKey = `refresh_token:${id}:${tokenHash}`;
     
-    // Store in Redis with a 30-day expiration (in seconds)
-    await redisConnection.set(redisKey, 'true', 'EX', 30 * 24 * 60 * 60);
+    // Parse numeric days for Redis TTL (Assuming format like '30d')
+    const days = parseInt(refreshExpire) || 30;
+    // Store in Redis with expiration matching the refresh token (in seconds)
+    await redisConnection.set(redisKey, 'true', 'EX', days * 24 * 60 * 60);
 
     return { accessToken, refreshToken };
   }

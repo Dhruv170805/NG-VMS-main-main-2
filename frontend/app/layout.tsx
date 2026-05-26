@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from "next";
 import ErrorBoundary from "../components/ErrorBoundary";
 import ClientWrapper from "../components/ClientWrapper";
 import { TenantProvider } from "./TenantContext";
+import { ApolloWrapper } from "../components/providers/ApolloWrapper";
+import { AuthProvider } from "../src/context/AuthContext";
 import "../styles/globals.css";
 
 export const metadata: Metadata = {
@@ -38,7 +40,11 @@ export default function RootLayout({
         <div className="bg-mesh" />
         <ErrorBoundary>
           <TenantProvider>
-            <ClientWrapper>{children}</ClientWrapper>
+            <ApolloWrapper>
+              <AuthProvider>
+                <ClientWrapper>{children}</ClientWrapper>
+              </AuthProvider>
+            </ApolloWrapper>
           </TenantProvider>
         </ErrorBoundary>
       </body>

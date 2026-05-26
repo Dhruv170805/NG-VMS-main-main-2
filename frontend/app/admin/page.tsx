@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Users, Settings, LogOut, Search, Activity, FileText, Menu, X, Target, Globe
+  Users, Settings, LogOut, Search, Activity, FileText, Menu, X, Target, Globe, Shield
 } from 'lucide-react';
 
 import { OverviewTab } from '../../components/admin/OverviewTab';
@@ -96,11 +96,18 @@ const AdminDashboard: React.FC = () => {
         className={`${styles.admin_sidebar} ${isMobileMenuOpen ? styles.mobile_open : ''}`}
       >
         <div className={styles.sidebar_top}>
-          <div className={styles.admin_brand} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            {tenant?.logoUrl && (
-              <img src={tenant.logoUrl} alt={tenant.name} width={28} height={28} style={{ objectFit: 'contain' }} />
-            )}
-            <span>{tenant?.name || 'NG-VMS'}</span>
+          <div className="glass-card" style={{ padding: '10px 12px', display: 'flex', alignItems: 'center', gap: '12px', background: 'rgba(0,0,0,0.02)', border: '1px solid rgba(0,0,0,0.05)', borderRadius: '14px', marginBottom: '15px' }}>
+            <div style={{ width: '52px', height: '52px', background: 'rgba(255,255,255,0.9)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', flexShrink: 0 }}>
+              {tenant?.logoUrl ? (
+                <img src={tenant.logoUrl} alt={tenant.name} width={40} height={40} style={{ objectFit: 'contain', borderRadius: '8px' }} />
+              ) : (
+                <Shield size={28} color="var(--apple-blue)" />
+              )}
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+              <span style={{ fontWeight: 800, fontSize: '1.05rem', letterSpacing: '-0.3px', lineHeight: 1.2, color: 'var(--text-primary)', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>{tenant?.name || 'VMS'}</span>
+              <span style={{ fontSize: '0.65rem', color: 'var(--apple-gray)', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 700, lineHeight: 1.2 }}>Control Panel</span>
+            </div>
           </div>
           <button className={styles.mobile_close} onClick={() => setIsMobileMenuOpen(false)}>
             <X size={24} />
@@ -229,7 +236,7 @@ const AdminDashboard: React.FC = () => {
                 onSetTableTimeFilter={setTableTimeFilter}
                 onSetTableCustomFrom={setTableCustomFrom}
                 onSetTableCustomTo={setTableCustomTo}
-                onRefresh={() => fetchVisitors(undefined, searchQuery)}
+                onRefresh={() => fetchVisitors()}
                 onQuickExport={handleQuickExport}
                 onGoToReports={() => setActiveTab('reports')}
                 onViewPhoto={setSelectedPhoto}

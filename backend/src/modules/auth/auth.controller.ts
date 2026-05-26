@@ -7,6 +7,16 @@ import crypto from 'crypto';
 import redisConnection from '../../config/redis';
 import logger from '../../utils/logger';
 
+// Helper to parse env times to MS for cookies
+const getAccessMaxAge = () => {
+  const envVal = process.env.JWT_ACCESS_EXPIRE_MS;
+  return envVal ? parseInt(envVal, 10) : 15 * 60 * 1000;
+};
+const getRefreshMaxAge = () => {
+  const envVal = process.env.JWT_REFRESH_EXPIRE_MS;
+  return envVal ? parseInt(envVal, 10) : 30 * 24 * 60 * 60 * 1000;
+};
+
 export const registerEmployee: RequestHandler = async (req, res): Promise<void> => {
   const { body, tenantId } = req as TenantRequest;
   try {
@@ -17,7 +27,7 @@ export const registerEmployee: RequestHandler = async (req, res): Promise<void> 
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
-      maxAge: 15 * 60 * 1000
+      maxAge: getAccessMaxAge()
     });
 
     // Set Refresh Token Cookie (30 days)
@@ -25,7 +35,7 @@ export const registerEmployee: RequestHandler = async (req, res): Promise<void> 
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
-      maxAge: 30 * 24 * 60 * 60 * 1000
+      maxAge: getRefreshMaxAge()
     });
 
     res.status(201).json({
@@ -54,7 +64,7 @@ export const loginEmployee: RequestHandler = async (req, res): Promise<void> => 
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
-      maxAge: 15 * 60 * 1000
+      maxAge: getAccessMaxAge()
     });
 
     // Set Refresh Token Cookie (30 days)
@@ -62,7 +72,7 @@ export const loginEmployee: RequestHandler = async (req, res): Promise<void> => 
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
-      maxAge: 30 * 24 * 60 * 60 * 1000
+      maxAge: getRefreshMaxAge()
     });
 
     res.json({
@@ -152,14 +162,14 @@ export const refreshAccessToken: RequestHandler = async (req, res): Promise<void
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
-      maxAge: 15 * 60 * 1000
+      maxAge: getAccessMaxAge()
     });
 
     res.cookie('refreshToken', tokens.refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
-      maxAge: 30 * 24 * 60 * 60 * 1000
+      maxAge: getRefreshMaxAge()
     });
 
     res.json({
@@ -197,13 +207,19 @@ export const forgotPassword: RequestHandler = async (req, res): Promise<void> =>
       req.get('host') as string
     );
     
+    // Enterprise Security: Standardized message prevents user enumeration.
+    // resetUrl is hidden in production; in development, it's returned for testing.
     res.json({ 
       success: true, 
-      message: 'Reset token generated and sent to email', 
+      message: 'If an account exists with that email, a reset link has been sent.', 
       resetUrl: process.env.NODE_ENV === 'production' ? undefined : resetUrl 
     });
   } catch (error: any) {
-    res.status(error.message === 'No employee with that email' ? 404 : 500).json({ message: error.message });
+    // Standardize error response to be identical to success to prevent enumeration.
+    res.json({ 
+      success: true, 
+      message: 'If an account exists with that email, a reset link has been sent.' 
+    });
   }
 };
 
