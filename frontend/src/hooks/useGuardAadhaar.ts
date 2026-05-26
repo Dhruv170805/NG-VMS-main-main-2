@@ -86,18 +86,15 @@ export const useGuardAadhaar = (
       const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
       setPdfRenderedImage(dataUrl);
 
-      const token = localStorage.getItem('token');
       await fetch(`${API_CONFIG.ENDPOINTS.VISITORS}/${visitorId}/id-preview`, {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json', 
-          'Authorization': `Bearer ${token}`,
+        headers: {
+          'Content-Type': 'application/json',
           'x-tenant-id': getTenantId()
         },
         body: JSON.stringify({ image: dataUrl }),
         credentials: 'include'
-      });
-    } catch (err) {
+      });    } catch (err) {
       console.error('PDF render failed:', err);
     }
   };
@@ -180,12 +177,10 @@ export const useGuardAadhaar = (
   const handleAadhaarConfirm = async () => {
     if (!aadhaarReviewData) return;
     try {
-      const token = localStorage.getItem('token');
       const updateRes = await fetch(`${API_CONFIG.ENDPOINTS.VISITORS}/${aadhaarReviewData.visitorId}/status`, {
         method: 'PATCH',
-        headers: { 
-          'Content-Type': 'application/json', 
-          'Authorization': `Bearer ${token}`,
+        headers: {
+          'Content-Type': 'application/json',
           'x-tenant-id': getTenantId()
         },
         body: JSON.stringify({
@@ -194,8 +189,7 @@ export const useGuardAadhaar = (
            aadhaarImageUrl: pdfRenderedImage || aadhaarReviewData.imageUrl
         }),
         credentials: 'include'
-      });
-      
+      });      
       if (updateRes.ok) {
          const updated = await updateRes.json();
          setVisitor(updated.visitor);

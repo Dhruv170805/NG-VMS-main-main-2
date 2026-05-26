@@ -1,7 +1,7 @@
 import { StateCreator } from 'zustand';
 import { API_CONFIG, buildUrl } from '../../../app/config';
 import { withRetry } from '../../utils/retryQueue';
-import { Visitor, getTenantId, safeLocalStorage } from '../types';
+import { Visitor, getTenantId } from '../types';
 
 export interface VisitorSlice {
   globalVisitors: Visitor[];
@@ -28,7 +28,6 @@ export const createVisitorSlice: StateCreator<VisitorSlice> = (set) => ({
     set({ visitorIsLoading: true });
     try {
       const data = await withRetry(async () => {
-        const token = safeLocalStorage.getItem('token');
         const fetchUrl = buildUrl(API_CONFIG.ENDPOINTS.VISITORS, {
           limit: '500',
           ...(search ? { search } : {}),
@@ -36,7 +35,6 @@ export const createVisitorSlice: StateCreator<VisitorSlice> = (set) => ({
         const res = await fetch(fetchUrl, {
           headers: {
             'x-tenant-id': getTenantId(),
-            ...(token ? { Authorization: `Bearer ${token}` } : {})
           },
           credentials: 'include',
         });
@@ -56,13 +54,11 @@ export const createVisitorSlice: StateCreator<VisitorSlice> = (set) => ({
   updateGlobalVisitorStatus: async (id: string, status: string, data?: any) => {
     try {
       const visitor = await withRetry(async () => {
-        const token = safeLocalStorage.getItem('token');
         const res = await fetch(`${API_CONFIG.ENDPOINTS.VISITORS}/${id}/status`, {
           method: 'PATCH',
           headers: {
             'Content-Type': 'application/json',
             'x-tenant-id': getTenantId(),
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
           body: JSON.stringify({ status, ...data }),
           credentials: 'include',
@@ -81,13 +77,11 @@ export const createVisitorSlice: StateCreator<VisitorSlice> = (set) => ({
   notifyVisitorAlert: async (id: string, type: string) => {
     try {
       await withRetry(async () => {
-        const token = safeLocalStorage.getItem('token');
         const res = await fetch(`${API_CONFIG.ENDPOINTS.VISITORS}/${id}/notify-alert`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'x-tenant-id': getTenantId(),
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
           body: JSON.stringify({ type }),
           credentials: 'include',

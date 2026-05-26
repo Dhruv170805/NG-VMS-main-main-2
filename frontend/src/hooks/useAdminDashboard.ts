@@ -273,11 +273,9 @@ export const useAdminDashboard = () => {
     setLoading(prev => ({ ...prev, license: true }));
     setUploadStatus({ message: 'Validating & Updating License...', type: 'info' });
     try {
-      const token = localStorage.getItem('token');
       const res = await fetch(`${API_CONFIG.ENDPOINTS.SYSTEM}/license`, {
         method: 'PATCH',
         headers: { 
-          'Authorization': `Bearer ${token}`, 
           'Content-Type': 'application/json',
           'x-tenant-id': getTenantId()
         },
@@ -314,14 +312,12 @@ export const useAdminDashboard = () => {
         credentials: 'include' 
       });
     } catch (err) {}
-    localStorage.removeItem('token');
     localStorage.removeItem('user');
     router.push('/login');
   };
 
   const handleUpload = async () => {
     if (!file) return;
-    const token = localStorage.getItem('token');
     const formData = new FormData();
     formData.append('file', file);
     formData.append('type', 'HOST');
@@ -331,7 +327,6 @@ export const useAdminDashboard = () => {
       const res = await fetch(`${API_CONFIG.ENDPOINTS.SYSTEM}/upload`, {
         method: 'POST',
         headers: { 
-          'Authorization': `Bearer ${token}`,
           'x-tenant-id': getTenantId()
         },
         credentials: 'include',
@@ -349,10 +344,8 @@ export const useAdminDashboard = () => {
 
   const handleAdvancedExport = () => {
     const fetchData = async (params: URLSearchParams) => {
-      const token = localStorage.getItem('token');
       const res = await fetch(`${API_CONFIG.ENDPOINTS.VISITORS}?${params.toString()}`, {
         headers: { 
-          'Authorization': `Bearer ${token}`,
           'x-tenant-id': getTenantId()
         },
         credentials: 'include'
@@ -365,12 +358,11 @@ export const useAdminDashboard = () => {
 
   const handleDownloadPurposeReport = async () => {
     try {
-      const token = localStorage.getItem('token');
       const response = await fetch(`${API_CONFIG.ENDPOINTS.ANALYTICS}/export-purposes`, {
         headers: { 
-          'Authorization': `Bearer ${token}`,
           'x-tenant-id': getTenantId()
-        }
+        },
+        credentials: 'include'
       });
       if (response.ok) {
         const blob = await response.blob();
@@ -388,11 +380,9 @@ export const useAdminDashboard = () => {
 
   const saveSetting = async (key: string, value: any) => {
     try {
-      const token = localStorage.getItem('token');
       await fetch(`${API_CONFIG.ENDPOINTS.SYSTEM}/settings`, {
         method: 'PATCH',
         headers: { 
-          'Authorization': `Bearer ${token}`, 
           'Content-Type': 'application/json',
           'x-tenant-id': getTenantId()
         },
@@ -423,11 +413,9 @@ export const useAdminDashboard = () => {
   const handleAddStaff = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const token = localStorage.getItem('token');
       const res = await fetch(`${API_CONFIG.ENDPOINTS.AUTH}/register`, {
         method: 'POST',
         headers: { 
-          'Authorization': `Bearer ${token}`, 
           'Content-Type': 'application/json',
           'x-tenant-id': getTenantId()
         },
@@ -448,11 +436,9 @@ export const useAdminDashboard = () => {
     const reason = prompt(`Enter security restriction reason for ${visitor.name}:`);
     if (!reason) return;
     try {
-      const token = localStorage.getItem('token');
       const res = await fetch(`${API_CONFIG.ENDPOINTS.BLACKLIST}`, {
         method: 'POST',
         headers: { 
-          'Authorization': `Bearer ${token}`, 
           'Content-Type': 'application/json',
           'x-tenant-id': getTenantId()
         },
@@ -465,10 +451,8 @@ export const useAdminDashboard = () => {
 
   const fetchEncryptedId = async (id: string, name: string) => {
     try {
-      const token = localStorage.getItem('token');
       const res = await fetch(`${API_CONFIG.ENDPOINTS.VISITORS}/${id}/id-preview`, {
         headers: { 
-          'Authorization': `Bearer ${token}`,
           'x-tenant-id': getTenantId()
         },
         credentials: 'include'
@@ -483,11 +467,9 @@ export const useAdminDashboard = () => {
   const removeEmployee = async (id: string) => {
     if (!confirm('Are you sure you want to remove this staff member?')) return;
     try {
-      const token = localStorage.getItem('token');
       const res = await fetch(`${API_CONFIG.ENDPOINTS.EMPLOYEES}/${id}`, {
         method: 'DELETE',
         headers: { 
-          'Authorization': `Bearer ${token}`,
           'x-tenant-id': getTenantId()
         },
         credentials: 'include'
@@ -498,11 +480,9 @@ export const useAdminDashboard = () => {
 
   const toggleHost = async (id: string) => {
     try {
-      const token = localStorage.getItem('token');
       const res = await fetch(`${API_CONFIG.ENDPOINTS.EMPLOYEES}/${id}/host`, {
         method: 'PATCH',
         headers: { 
-          'Authorization': `Bearer ${token}`,
           'x-tenant-id': getTenantId()
         },
         credentials: 'include'
@@ -517,11 +497,9 @@ export const useAdminDashboard = () => {
       .map(p => p._id);
     if (filteredIds.length === 0) return;
     try {
-      const token = localStorage.getItem('token');
       const res = await fetch(`${API_CONFIG.ENDPOINTS.EMPLOYEES}/bulk-host`, {
         method: 'PATCH',
         headers: { 
-          'Authorization': `Bearer ${token}`, 
           'Content-Type': 'application/json',
           'x-tenant-id': getTenantId()
         },
@@ -542,10 +520,8 @@ export const useAdminDashboard = () => {
       return;
     }
     try {
-      const token = localStorage.getItem('token');
       const res = await fetch(`${API_CONFIG.ENDPOINTS.EMPLOYEES}/${id}/stats`, {
         headers: { 
-          'Authorization': `Bearer ${token}`,
           'x-tenant-id': getTenantId()
         },
         credentials: 'include'
@@ -559,11 +535,9 @@ export const useAdminDashboard = () => {
 
   const toggleBlacklist = async (id: string) => {
     try {
-      const token = localStorage.getItem('token');
       await fetch(`${API_CONFIG.ENDPOINTS.BLACKLIST}/${id}/toggle`, {
         method: 'PATCH',
         headers: { 
-          'Authorization': `Bearer ${token}`,
           'x-tenant-id': getTenantId()
         },
         credentials: 'include'
@@ -575,11 +549,9 @@ export const useAdminDashboard = () => {
   const deleteFromBlacklist = async (id: string) => {
     if (!confirm('Are you sure you want to permanently remove this entry?')) return;
     try {
-      const token = localStorage.getItem('token');
       const res = await fetch(`${API_CONFIG.ENDPOINTS.BLACKLIST}/${id}`, {
         method: 'DELETE',
         headers: { 
-          'Authorization': `Bearer ${token}`,
           'x-tenant-id': getTenantId()
         },
         credentials: 'include'

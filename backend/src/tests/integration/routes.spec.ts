@@ -23,8 +23,6 @@ describe('NG-VMS API Integration Tests', () => {
         });
 
       expect(res.status).toBe(200);
-      expect(res.body).toHaveProperty('token');
-      expect(res.body).toHaveProperty('refreshToken');
       expect(res.body.email).toBe('admin@test.com');
       
       // Verify cookies are set

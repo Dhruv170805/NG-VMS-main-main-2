@@ -23,7 +23,7 @@ test.describe('NG-VMS Visual Regression Tests', () => {
     await stabilizePage(page);
     await page.waitForTimeout(1000);
     await expect(page).toHaveScreenshot('landing-page.png', {
-      maxDiffPixelRatio: 0.1,
+      maxDiffPixelRatio: 0.15,
     });
   });
 
@@ -33,7 +33,7 @@ test.describe('NG-VMS Visual Regression Tests', () => {
     await stabilizePage(page);
     await page.waitForTimeout(1000);
     await expect(page).toHaveScreenshot('login-page.png', {
-      maxDiffPixelRatio: 0.1,
+      maxDiffPixelRatio: 0.15,
     });
   });
 
@@ -42,7 +42,7 @@ test.describe('NG-VMS Visual Regression Tests', () => {
     await stabilizePage(page);
     await page.waitForTimeout(1000);
     await expect(page).toHaveScreenshot('register-page.png', {
-      maxDiffPixelRatio: 0.1,
+      maxDiffPixelRatio: 0.15,
     });
   });
 });

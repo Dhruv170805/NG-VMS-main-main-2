@@ -145,10 +145,8 @@ export default function GuardTerminal() {
 
   const fetchConfig = useCallback(async () => {
     try {
-      const token = localStorage.getItem('token');
       const res = await fetch(`${API_CONFIG.ENDPOINTS.SYSTEM}/config`, {
         headers: { 
-          'Authorization': `Bearer ${token}`,
           'x-tenant-id': getTenantId()
         },
         credentials: 'include'
@@ -165,7 +163,6 @@ export default function GuardTerminal() {
   const { getVisitorsGql, getVisitorGql, searchRevisitorsGql } = useVisitorQueries();
 
   const fetchHistory = useCallback(async (signal?: AbortSignal, search?: string) => {
-    if (typeof window !== 'undefined' && !localStorage.getItem('token')) return;
     setIsLoading(true);
     try {
       const { data } = await getVisitorsGql({
@@ -207,11 +204,8 @@ export default function GuardTerminal() {
   useEffect(() => {
     const fetchLatestHandover = async () => {
       try {
-        const token = localStorage.getItem('token');
-        if (!token) return;
         const res = await fetch(`${API_CONFIG.ENDPOINTS.HANDOVER}/latest?gateId=MAIN_GATE`, {
           headers: { 
-            'Authorization': `Bearer ${token}`,
             'x-tenant-id': getTenantId()
           },
           credentials: 'include'
@@ -289,7 +283,6 @@ export default function GuardTerminal() {
   const handleGrantAccess = async (action: 'checkin' | 'completed' | 'forward') => {
     if (!visitor?._id) return;
     try {
-      const token = localStorage.getItem('token');
       let body: any = { status: '' };
       if (action === 'checkin') body.status = 'GATE_IN';
       else if (action === 'completed') body.status = 'GATE_OUT';
@@ -299,7 +292,6 @@ export default function GuardTerminal() {
         method: 'PATCH',
         headers: { 
           'Content-Type': 'application/json', 
-          'Authorization': `Bearer ${token}`,
           'x-tenant-id': getTenantId()
         },
         body: JSON.stringify(body),
@@ -320,12 +312,10 @@ export default function GuardTerminal() {
 
   const handleSendAlert = async (id: string, type: 'OVERSTAY' | 'POST_MEETING') => {
     try {
-      const token = localStorage.getItem('token');
       await fetch(`${API_CONFIG.ENDPOINTS.VISITORS}/${id}/notify-alert`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json', 
-          'Authorization': `Bearer ${token}`,
           'x-tenant-id': getTenantId()
         },
         body: JSON.stringify({ type }),

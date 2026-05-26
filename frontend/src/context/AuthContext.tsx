@@ -38,13 +38,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const checkAuth = async () => {
     try {
-      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
       const headers: any = {
         'x-tenant-id': getTenantId()
       };
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
 
       const res = await fetch(`${API_CONFIG.ENDPOINTS.AUTH}/me`, {
         headers,

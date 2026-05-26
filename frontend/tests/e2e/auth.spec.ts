@@ -52,7 +52,7 @@ test.describe('NG-VMS Multi-Role Portal Authentication & Navigation Tests', () =
     await expect(page.locator('text=Security').first()).toBeVisible();
     await expect(page.locator('text=Security Guard 01').first()).toBeVisible();
     await expect(page.locator('text=NEW VISITOR')).toBeVisible();
-    await expect(page.locator('text=END SHIFT')).toBeVisible();
+    await expect(page.locator('text=HANDOVER SHIFT')).toBeVisible();
 
     // Verify stats header counters
     await expect(page.locator('text=APPLIED')).toBeVisible();

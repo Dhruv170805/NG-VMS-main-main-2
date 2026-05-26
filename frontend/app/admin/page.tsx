@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
+import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Users, Settings, LogOut, Search, Activity, FileText, Menu, X, Target, Globe, Shield
@@ -99,7 +100,7 @@ const AdminDashboard: React.FC = () => {
           <div className="glass-card" style={{ padding: '10px 12px', display: 'flex', alignItems: 'center', gap: '12px', background: 'rgba(0,0,0,0.02)', border: '1px solid rgba(0,0,0,0.05)', borderRadius: '14px', marginBottom: '15px' }}>
             <div style={{ width: '52px', height: '52px', background: 'rgba(255,255,255,0.9)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', flexShrink: 0 }}>
               {tenant?.logoUrl ? (
-                <img src={tenant.logoUrl} alt={tenant.name} width={40} height={40} style={{ objectFit: 'contain', borderRadius: '8px' }} />
+                <Image src={tenant.logoUrl} alt={tenant.name} width={40} height={40} style={{ objectFit: 'contain', borderRadius: '8px' }} unoptimized={true} />
               ) : (
                 <Shield size={28} color="var(--apple-blue)" />
               )}

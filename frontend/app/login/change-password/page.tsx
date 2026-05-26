@@ -7,20 +7,13 @@ import { useTenant } from '../../TenantContext';
 import styles from '../login.module.css';
 
 const ChangePassword = () => {
-  const { tenant } = useTenant();
+  const { getTenantId, tenant } = useTenant();
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const router = useRouter();
-
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      router.push('/login');
-    }
-  }, [router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,12 +26,11 @@ const ChangePassword = () => {
     }
 
     try {
-      const token = localStorage.getItem('token');
       const res = await fetch(`${API_CONFIG.ENDPOINTS.AUTH}/update-password`, {
         method: 'PATCH',
         headers: { 
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'x-tenant-id': getTenantId()
         },
         credentials: 'include',
         body: JSON.stringify({ currentPassword, newPassword })

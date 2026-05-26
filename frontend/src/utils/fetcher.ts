@@ -21,13 +21,9 @@ export const fetcher = async (url: string) => {
     return 'demo';
   };
 
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
   const headers: any = {
     'x-tenant-id': getTenantId()
   };
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
 
   const res = await fetch(url, {
     headers,

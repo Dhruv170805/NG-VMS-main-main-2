@@ -44,9 +44,7 @@ export const registerEmployee: RequestHandler = async (req, res): Promise<void> 
       email: employee.email,
       role: employee.role,
       department: employee.department,
-      requiresPasswordChange: employee.requiresPasswordChange,
-      token: accessToken,
-      refreshToken
+      requiresPasswordChange: employee.requiresPasswordChange
     });
   } catch (error: any) {
     logger.error({ err: error.message }, 'Employee registration failed');
@@ -81,9 +79,7 @@ export const loginEmployee: RequestHandler = async (req, res): Promise<void> => 
       email: employee.email,
       role: employee.role,
       department: employee.department,
-      requiresPasswordChange: employee.requiresPasswordChange,
-      token: accessToken,
-      refreshToken
+      requiresPasswordChange: employee.requiresPasswordChange
     });
   } catch (error: any) {
     logger.error({ err: error.message, email: body.email }, 'Employee login failed');
@@ -172,10 +168,7 @@ export const refreshAccessToken: RequestHandler = async (req, res): Promise<void
       maxAge: getRefreshMaxAge()
     });
 
-    res.json({
-      token: tokens.accessToken,
-      refreshToken: tokens.refreshToken
-    });
+    res.json({ success: true });
   } catch (error: any) {
     logger.error({ err: error.message }, 'Refresh token verification failed');
     res.status(401).json({ message: 'Unauthorized, refresh token invalid or expired' });

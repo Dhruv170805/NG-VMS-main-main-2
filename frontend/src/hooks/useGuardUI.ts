@@ -20,10 +20,8 @@ export const useGuardUI = (
 
   const fetchShiftStats = useCallback(async () => {
     try {
-      const token = localStorage.getItem('token');
       const res = await fetch(`${API_CONFIG.ENDPOINTS.HANDOVER}/stats?gateId=MAIN_GATE&start=${shiftStartRef.current}`, {
-        headers: { 
-          'Authorization': `Bearer ${token}`,
+        headers: {
           'x-tenant-id': getTenantId()
         },
         credentials: 'include'
@@ -33,15 +31,12 @@ export const useGuardUI = (
     } catch (err) {
       console.error('Stats fetch failed', err);
     }
-  }, [getTenantId, shiftStartRef]);
+    }, [getTenantId, shiftStartRef]);
 
-  const fetchLatestHandover = useCallback(async () => {
+    const fetchLatestHandover = useCallback(async () => {
     try {
-      const token = localStorage.getItem('token');
-      if (!token) return;
       const res = await fetch(`${API_CONFIG.ENDPOINTS.HANDOVER}/latest?gateId=MAIN_GATE`, {
-        headers: { 
-          'Authorization': `Bearer ${token}`,
+        headers: {
           'x-tenant-id': getTenantId()
         },
         credentials: 'include'
@@ -54,13 +49,13 @@ export const useGuardUI = (
     } catch (err) {
       console.error('Failed to fetch previous handover', err);
     }
-  }, [getTenantId]);
+    }, [getTenantId]);
 
-  useEffect(() => {
+    useEffect(() => {
     fetchLatestHandover();
-  }, [fetchLatestHandover]);
+    }, [fetchLatestHandover]);
 
-  const handleHandover = async () => {
+    const handleHandover = async () => {
     // If shiftStats isn't loaded from API yet, fallback to locally calculated stats
     const statsToSubmit = shiftStats || {
       GATE_IN: summary.gate_in,
@@ -69,12 +64,10 @@ export const useGuardUI = (
     };
 
     try {
-      const token = localStorage.getItem('token');
       const res = await fetch(`${API_CONFIG.ENDPOINTS.HANDOVER}/submit`, {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json', 
-          'Authorization': `Bearer ${token}`,
+        headers: {
+          'Content-Type': 'application/json',
           'x-tenant-id': getTenantId()
         },
         body: JSON.stringify({
@@ -84,8 +77,7 @@ export const useGuardUI = (
           stats: statsToSubmit
         }),
         credentials: 'include'
-      });
-      if (res.ok) {
+      });      if (res.ok) {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         router.push('/login');

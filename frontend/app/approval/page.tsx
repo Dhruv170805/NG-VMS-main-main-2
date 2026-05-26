@@ -62,7 +62,7 @@ const EmployeeApproval: React.FC = () => {
     setActiveVisitor, setTimeline, setVisitors
   } = useHostStore();
 
-  const { user, isLoading: authLoading } = useAuth();
+  const { user, isLoading: authLoading, logout } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [modalType, setModalType] = useState<'REJECT' | 'MEET_OUT' | 'APPROVE' | null>(null);
@@ -156,7 +156,7 @@ const EmployeeApproval: React.FC = () => {
         user={user} stats={stats} statusFilter={statusFilter} setStatusFilter={setStatusFilter}
         searchQuery={searchQuery} setSearchQuery={setSearchQuery} 
         onInvite={() => setShowInviteModal(true)}
-        onLogout={() => { localStorage.clear(); router.push('/login'); }}
+        onLogout={logout}
         notificationPermission="default" onRequestNotifications={() => {}}
         isConnected={isConnected}
         onMenuToggle={() => setIsSidebarOpen(!isSidebarOpen)}
