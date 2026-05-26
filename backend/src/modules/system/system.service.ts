@@ -195,10 +195,10 @@ export class SystemService {
       tenantId
     })).filter(e => e.name && e.email);
 
-    for (const emp of employees) {
-      await Employee.findOneAndUpdate(
-        { email: emp.email, tenantId },
-        {
+    const ops = employees.map(emp => ({
+      updateOne: {
+        filter: { email: emp.email, tenantId },
+        update: {
           $setOnInsert: { password: emp.password, requiresPasswordChange: true },
           $set: {
             name: emp.name,
@@ -209,8 +209,12 @@ export class SystemService {
             isHost: emp.isHost
           }
         },
-        { upsert: true, new: true }
-      );
+        upsert: true
+      }
+    }));
+
+    if (ops.length > 0) {
+      await Employee.bulkWrite(ops as any[]);
     }
 
     return employees.length;

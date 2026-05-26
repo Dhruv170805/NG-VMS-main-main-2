@@ -1,19 +1,25 @@
 import { Response, RequestHandler } from 'express';
 import { TenantRequest } from '../../types/requests';
 import { AadhaarService } from './aadhaar.service';
+import fs from 'fs';
 
 export const processAadhaar: RequestHandler = async (req, res) => {
   const { file, body, tenantId } = req as TenantRequest;
   try {
-    if (!file || !file.buffer) {
+    if (!file || !file.path) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
+    const fileBuffer = fs.readFileSync(file.path);
+
     const result = await AadhaarService.processAadhaar(
-      file.buffer, 
+      fileBuffer, 
       body.password, 
       tenantId!
     );
+
+    // Delete the temporary file from disk to prevent storage leaks
+    fs.unlinkSync(file.path);
     
     res.json(result);
   } catch (error: any) {

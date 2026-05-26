@@ -64,7 +64,9 @@ export class SecurityManager {
        console.error('FATAL: LICENSE_SECRET environment variable is missing.');
        process.exit(1);
     }
-    this.secretKey = (secret || 'default-secret-key-1234567890123456').substring(0, 32);
+    
+    // In test environment, fallback to dummy key if not provided
+    this.secretKey = (secret || 'test-secret-key-1234567890123456').substring(0, 32);
     
     // RSA Public Key (Standard PEM)
     const publicKeyPath = path.join(process.cwd(), 'public.pem');

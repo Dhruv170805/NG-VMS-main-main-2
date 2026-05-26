@@ -103,7 +103,7 @@ export const HostHeader: React.FC<HostHeaderProps> = ({
           onClick={onInvite} 
           style={{ background: 'var(--apple-blue)', color: 'white', border: 'none', padding: '10px 16px', borderRadius: '14px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem', fontWeight: 800, cursor: 'pointer', boxShadow: '0 4px 15px rgba(0,122,255,0.3)', transition: 'all 0.3s' }}
         >
-          <UserPlus size={16} /> <span style={{ display: 'none', '@media (min-width: 768px)': { display: 'inline' } } as any}>Invite</span>
+          <UserPlus size={16} /> <span className={styles.invite_text}>Invite</span>
         </button>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(0,0,0,0.03)', padding: '6px', borderRadius: '16px', border: '1px solid rgba(0,0,0,0.05)' }}>

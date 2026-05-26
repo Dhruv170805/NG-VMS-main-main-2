@@ -22,36 +22,41 @@ export const overstayWorker = new Worker(
 
       logger.info({ count: activeVisitors.length }, `Found ${activeVisitors.length} potential overstays`);
 
-      for (const visitor of activeVisitors) {
-        // Prevent duplicate alerts within a 12-hour period using Redis cache
-        const redisKey = `overstay_alerted:${visitor._id}`;
-        const alreadyAlerted = await redisConnection.get(redisKey);
+      const CHUNK_SIZE = 50;
+      for (let i = 0; i < activeVisitors.length; i += CHUNK_SIZE) {
+        const chunk = activeVisitors.slice(i, i + CHUNK_SIZE);
 
-        if (alreadyAlerted) {
-          continue;
-        }
+        await Promise.all(chunk.map(async (visitor) => {
+          // Prevent duplicate alerts within a 12-hour period using Redis cache
+          const redisKey = `overstay_alerted:${visitor._id}`;
+          const alreadyAlerted = await redisConnection.get(redisKey);
 
-        let hostEmail = '';
-        let hostIdStr = '';
-
-        if (visitor.hostId) {
-          const host = visitor.hostId as any;
-          if (host && host.email) {
-            hostEmail = host.email;
-            hostIdStr = host._id.toString();
+          if (alreadyAlerted) {
+            return;
           }
-        }
 
-        logger.warn(
-          { visitorId: visitor._id, visitorName: visitor.name, tenantId: visitor.tenantId },
-          `Visitor overstay detected. Triggering security alerts.`
-        );
+          let hostEmail = '';
+          let hostIdStr = '';
 
-        // Call the notification service
-        await notifySecurityOverstay(visitor.name, hostEmail, hostIdStr, visitor.tenantId);
+          if (visitor.hostId) {
+            const host = visitor.hostId as any;
+            if (host && host.email) {
+              hostEmail = host.email;
+              hostIdStr = host._id.toString();
+            }
+          }
 
-        // Mark as alerted for 12 hours (43200 seconds)
-        await redisConnection.set(redisKey, 'true', 'EX', 43200);
+          logger.warn(
+            { visitorId: visitor._id, visitorName: visitor.name, tenantId: visitor.tenantId },
+            `Visitor overstay detected. Triggering security alerts.`
+          );
+
+          // Call the notification service
+          await notifySecurityOverstay(visitor.name, hostEmail, hostIdStr, visitor.tenantId);
+
+          // Mark as alerted for 12 hours (43200 seconds)
+          await redisConnection.set(redisKey, 'true', 'EX', 43200);
+        }));
       }
     } catch (error: any) {
       logger.error({ err: error.message }, 'Error in overstay detection job');

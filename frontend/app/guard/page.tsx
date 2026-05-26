@@ -23,6 +23,10 @@ import { VisitorDossier } from '../../components/guard/VisitorDossier';
 import { AadhaarQuickLook } from '../../components/guard/AadhaarQuickLook';
 import { QuickEntryForm } from '../../components/guard/QuickEntryForm';
 import { useVisitorQueries } from '../../src/hooks/useVisitorQueries';
+import { useGuardScanner } from '../../src/hooks/useGuardScanner';
+import { useGuardAadhaar } from '../../src/hooks/useGuardAadhaar';
+import { useGuardRegistration } from '../../src/hooks/useGuardRegistration';
+import { useGuardUI } from '../../src/hooks/useGuardUI';
 
 export default function GuardTerminal() {
   const router = useRouter();
@@ -40,62 +44,65 @@ export default function GuardTerminal() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const [scanStatus, setScanStatus] = useState<'idle' | 'scanning' | 'verifying' | 'success' | 'error'>('idle');
-  const [visitor, setVisitor] = useState<Visitor | null>(null);
-  const [errorMsg, setErrorMsg] = useState('');
+  // Custom Hooks
+  const { 
+    scanStatus, setScanStatus, visitor, setVisitor, 
+    errorMsg, setErrorMsg, manualId, setManualId, 
+    startScanner, stopScanner, handleVerification 
+  } = useGuardScanner();
+
   const [auditHistory, setAuditHistory] = useState<Visitor[]>([]);
+
+  const [guardConfig, setGuardConfig] = useState<any>({ autoScan: false, folderName: '', requireAadhaar: false });
+
+  const {
+    isUploadingAadhaar, aadhaarReviewData, aadhaarPassword, setAadhaarPassword,
+    pdfRenderedImage, uidaiWindow, fetchedFile,
+    handleOpenUidai, handleStep2Interact, handleAadhaarUpload,
+    handleAutoFetchLatest, handleAadhaarConfirm, handleAadhaarReject
+  } = useGuardAadhaar(setVisitor, setAuditHistory, guardConfig);
   const [isLoading, setIsLoading] = useState(true);
-  const [manualId, setManualId] = useState('');
   const { user, isLoading: authLoading, logout } = useAuth();
   const [clock, setClock] = useState(new Date());
   const [mounted, setMounted] = useState(false);
-  const [shiftStats, setShiftStats] = useState<ShiftStats | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  
-  // Modals & UI State
-  const [showHandover, setShowHandover] = useState(false);
-  const [handoverNotes, setHandoverNotes] = useState('');
-  const [historyFilter, setHistoryFilter] = useState<any>('ALL');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [showQuickEntry, setShowQuickEntry] = useState(false);
-  
-  // Previous Handover Note
-  const [showPreviousNotes, setShowPreviousNotes] = useState(false);
-  const [previousHandover, setPreviousHandover] = useState<any>(null);
-  const [selectedPhoto, setSelectedPhoto] = useState<{ url: string, title: string, isAadhaar?: boolean, id?: string } | null>(null);
-  const [previewScale, setPreviewScale] = useState(1);
-  const [isPreviewZoomed, setIsPreviewZoomed] = useState(false);
-
-  // Aadhaar 2FA State
-  const [isUploadingAadhaar, setIsUploadingAadhaar] = useState(false);
-  const [aadhaarReviewData, setAadhaarReviewData] = useState<any>(null);
-  const [aadhaarPassword, setAadhaarPassword] = useState('');
-  const [pdfRenderedImage, setPdfRenderedImage] = useState<string | null>(null);
-  const [uidaiWindow, setUidaiWindow] = useState<Window | null>(null);
-  const [persistedHandle, setPersistedHandle] = useState<any>(null);
-  const [guardConfig, setGuardConfig] = useState<any>({ autoScan: false, folderName: '', requireAadhaar: false });
-  const [fetchedFile, setFetchedFile] = useState<File | null>(null);
-
-  // Quick Entry State
-  const [activeRegTab, setActiveRegTab] = useState<'NEW' | 'REVISIT'>('NEW');
-  const [revisitSearch, setRevisitSearch] = useState('');
-  const [revisitResults, setRevisitResults] = useState<Visitor[]>([]);
-  const [isSearchingRevisit, setIsSearchingRevisit] = useState(false);
-  const [formData, setFormData] = useState<any>({
-    name: '', phone: '', email: '', company: '', purpose: '', hostId: '', hostName: '', 
-    idProofType: 'Aadhar Card', idProofNumber: '', requestedDuration: '1H', hostRemark: '', 
-    photoUrl: '', idProofPhotoUrl: '',
-  });
-  const [employees, setEmployees] = useState<any[]>([]);
-  const [systemPurposes, setSystemPurposes] = useState<string[]>([]);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [captureMode, setCaptureMode] = useState<'VISITOR' | 'ID'>('VISITOR');
-  
   // Refs
   const shiftStartRef = useRef(new Date().toISOString());
-  const scannerRef = useRef<Html5Qrcode | null>(null);
-  const webcamRefReg = useRef<Webcam>(null);
 
+  const summary = {
+    applied: auditHistory.length,
+    pending: auditHistory.filter(v => v.status === 'PENDING_GUARD').length,
+    forwarded: auditHistory.filter(v => v.status === 'SENT_FOR_APPROVAL').length,
+    approved: auditHistory.filter(v => v.status === 'APPROVED').length,
+    rejected: auditHistory.filter(v => v.status === 'REJECTED').length,
+    gate_in: auditHistory.filter(v => v.status === 'GATE_IN').length,
+    meet_in: auditHistory.filter(v => v.status === 'MEET_IN').length,
+    meet_out: auditHistory.filter(v => v.status === 'MEET_OUT').length,
+    gate_out: auditHistory.filter(v => v.status === 'GATE_OUT').length,
+    overdue: auditHistory.filter(v => ['GATE_IN', 'MEET_IN', 'MEET_OUT'].includes(v.status) && v.expectedCheckout && new Date(v.expectedCheckout) < new Date()).length
+  };
+
+  // UI Hook
+  const {
+    showHandover, setShowHandover,
+    handoverNotes, setHandoverNotes,
+    showPreviousNotes, setShowPreviousNotes,
+    previousHandover, setPreviousHandover,
+    selectedPhoto, setSelectedPhoto,
+    previewScale, setPreviewScale,
+    isPreviewZoomed, setIsPreviewZoomed,
+    shiftStats, setShiftStats,
+    fetchShiftStats,
+    handleHandover
+  } = useGuardUI(router, shiftStartRef, summary);
+
+  const [historyFilter, setHistoryFilter] = useState('ALL');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showQuickEntry, setShowQuickEntry] = useState(false);
+  const [persistedHandle, setPersistedHandle] = useState<any>(null);
+  const [employees, setEmployees] = useState<any[]>([]);
+  const [systemPurposes, setSystemPurposes] = useState<string[]>([]);
+  
   // Load PDF.js
   useEffect(() => {
     if (typeof window !== 'undefined' && !(window as any).pdfjsLib) {
@@ -173,24 +180,22 @@ export default function GuardTerminal() {
     } finally {
       setIsLoading(false);
     }
-  }, [getVisitorsGql]);
+  }, [getVisitorsGql, getTenantId, historyFilter, searchQuery]);
 
-  const fetchShiftStats = useCallback(async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${API_CONFIG.ENDPOINTS.HANDOVER}/stats?gateId=MAIN_GATE&start=${shiftStartRef.current}`, {
-        headers: { 
-          'Authorization': `Bearer ${token}`,
-          'x-tenant-id': getTenantId()
-        },
-        credentials: 'include'
-      });
-      const data = await res.json();
-      if (data.success) setShiftStats(data.summary);
-    } catch (err) {
-      console.error('Stats fetch failed', err);
-    }
-  }, [getTenantId]);
+  const {
+    activeRegTab, setActiveRegTab,
+    revisitSearch, setRevisitSearch,
+    revisitResults, setRevisitResults,
+    isSearchingRevisit,
+    formData, setFormData,
+    isSubmitting,
+    captureMode, setCaptureMode,
+    webcamRefReg,
+    performCapture,
+    handleQuickRegister,
+    handleRevisitorSearch,
+    autofillVisitor
+  } = useGuardRegistration(tenant, setShowQuickEntry, fetchHistory);
 
   useEffect(() => {
     setMounted(true);
@@ -275,245 +280,11 @@ export default function GuardTerminal() {
     };
   }, [socket, visitor?._id]);
 
-  // UIDAI Window Observer
-  useEffect(() => {
-    const handleReentry = () => {
-      if (uidaiWindow && !uidaiWindow.closed) {
-        try { uidaiWindow.close(); } catch (e) { console.error(e); }
-        setUidaiWindow(null);
-      }
-    };
-    window.addEventListener('focus', handleReentry);
-    window.addEventListener('click', handleReentry, { capture: true });
-    
-    const handleVisibility = () => document.visibilityState === 'visible' && handleReentry();
-    document.addEventListener('visibilitychange', handleVisibility);
-    
-    return () => {
-      window.removeEventListener('focus', handleReentry);
-      window.removeEventListener('click', handleReentry, { capture: true });
-      document.removeEventListener('visibilitychange', handleVisibility);
-    };
-  }, [uidaiWindow]);
 
-  const handleOpenUidai = () => {
-    const win = window.open('https://myaadhaar.uidai.gov.in/genricDownloadAadhaar/en', 'UIDAIPortal', 'width=1200,height=800,top=50,left=50');
-    if (win) {
-      setUidaiWindow(win);
-      setTimeout(() => {
-        try {
-          if (!win.closed) win.close();
-          setUidaiWindow(null);
-          window.focus();
-        } catch (e) { console.error(e); }
-      }, 45000);
-    }
-  };
 
-  const handleStep2Interact = () => {
-    if (uidaiWindow && !uidaiWindow.closed) {
-      uidaiWindow.close();
-      setUidaiWindow(null);
-    }
-  };
 
-  const renderAndUploadPdf = async (base64Pdf: string, visitorId: string, password?: string) => {
-    try {
-      const pdfjsLib = (window as any).pdfjsLib;
-      if (!pdfjsLib) return;
 
-      const binaryString = atob(base64Pdf);
-      const len = binaryString.length;
-      const bytes = new Uint8Array(len);
-      for (let i = 0; i < len; i++) bytes[i] = binaryString.charCodeAt(i);
 
-      const loadingTask = pdfjsLib.getDocument({ data: bytes, password });
-      const pdf = await loadingTask.promise;
-      const page = await pdf.getPage(1);
-      const viewport = page.getViewport({ scale: 2.5 });
-
-      const canvas = document.createElement('canvas');
-      const context = canvas.getContext('2d');
-      if (!context) return;
-      canvas.height = viewport.height;
-      canvas.width = viewport.width;
-
-      await page.render({ canvasContext: context, viewport }).promise;
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
-      setPdfRenderedImage(dataUrl);
-
-      const token = localStorage.getItem('token');
-      await fetch(`${API_CONFIG.ENDPOINTS.VISITORS}/${visitorId}/id-preview`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json', 
-          'Authorization': `Bearer ${token}`,
-          'x-tenant-id': getTenantId()
-        },
-        body: JSON.stringify({ image: dataUrl }),
-        credentials: 'include'
-      });
-    } catch (err) {
-      console.error('PDF render failed:', err);
-    }
-  };
-
-  const handleAadhaarUpload = async (file: File | null | undefined, visitorId: string) => {
-    if (!file) return;
- 
-     setIsUploadingAadhaar(true);
-     const form = new FormData();
-     form.append('file', file);
-     if (aadhaarPassword) form.append('password', aadhaarPassword);
- 
-     const controller = new AbortController();
-     const timeoutId = setTimeout(() => controller.abort(), 30000);
- 
-     try {
-       const res = await fetch(`${API_CONFIG.BASE_URL}/aadhaar/upload`, {
-         method: 'POST', 
-         headers: {
-           'x-tenant-id': getTenantId()
-         },
-         body: form, 
-         signal: controller.signal
-       });
-       clearTimeout(timeoutId);
-       
-       const data = await res.json();
-       if (res.ok) {
-         setAadhaarReviewData({ ...data, visitorId });
-         if (data.pdfData) renderAndUploadPdf(data.pdfData, visitorId, aadhaarPassword);
-         if (navigator.vibrate) navigator.vibrate([30, 50, 30]);
-       } else {
-         alert(data.error || 'Aadhaar processing failed');
-       }
-     } catch (err: any) {
-       clearTimeout(timeoutId);
-       if (err.name === 'AbortError') alert('Aadhaar processing timed out.');
-       else alert('Error uploading Aadhaar: ' + (err.message || 'Check connection.'));
-     } finally {
-       setIsUploadingAadhaar(false);
-     }
-   };
-
-  const handleAutoFetchLatest = async (visitorId: string) => {
-    setIsUploadingAadhaar(true);
-    try {
-      const fetchUrl = buildUrl(`${API_CONFIG.BASE_URL}/aadhaar/latest`, {
-        ...(guardConfig.folderName ? { folder: guardConfig.folderName } : {}),
-      });
-      
-      const res = await fetch(fetchUrl, {
-        headers: {
-          'x-tenant-id': getTenantId()
-        }
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Failed to fetch latest PDF');
-      }
-      const data = await res.json();
-      
-      const byteCharacters = atob(data.pdfData);
-      const byteNumbers = new Array(byteCharacters.length);
-      for (let i = 0; i < byteCharacters.length; i++) {
-        byteNumbers[i] = byteCharacters.charCodeAt(i);
-      }
-      const byteArray = new Uint8Array(byteNumbers);
-      const blob = new Blob([byteArray], { type: 'application/pdf' });
-      const file = new File([blob], data.filename, { type: 'application/pdf' });
-      
-      setFetchedFile(file);
-      alert(`Found latest file: ${data.filename}. Enter password and click Validate.`);
-    } catch (err: any) {
-      alert('Error: ' + err.message);
-    } finally {
-      setIsUploadingAadhaar(false);
-    }
-  };
-
-  const handleAadhaarConfirm = async () => {
-    if (!aadhaarReviewData) return;
-    try {
-      const token = localStorage.getItem('token');
-      const updateRes = await fetch(`${API_CONFIG.ENDPOINTS.VISITORS}/${aadhaarReviewData.visitorId}/status`, {
-        method: 'PATCH',
-        headers: { 
-          'Content-Type': 'application/json', 
-          'Authorization': `Bearer ${token}`,
-          'x-tenant-id': getTenantId()
-        },
-        body: JSON.stringify({
-           aadhaarVerified: true,
-           maskedAadhaar: aadhaarReviewData.maskedAadhaar,
-           aadhaarImageUrl: pdfRenderedImage || aadhaarReviewData.imageUrl
-        }),
-        credentials: 'include'
-      });
-      
-      if (updateRes.ok) {
-         const updated = await updateRes.json();
-         setVisitor(updated.visitor);
-         setAuditHistory(prev => prev.map(v => v._id === updated.visitor._id ? updated.visitor : v));
-         setAadhaarReviewData(null);
-         setPdfRenderedImage(null);
-         alert('Aadhaar Verification Successful.');
-      } else {
-         alert('Failed to update visitor with Aadhaar data.');
-      }
-    } catch (err) {
-      alert('Error confirming Aadhaar');
-    }
-  };
-
-  const handleAadhaarReject = () => {
-    setAadhaarReviewData(null);
-    alert('Aadhaar mismatch recorded. Preview cleared.');
-  };
-
-  const startScanner = async () => {
-    setScanStatus('scanning');
-    setVisitor(null);
-    setErrorMsg('');
-    setTimeout(async () => {
-      try {
-        const scanner = new Html5Qrcode("reader");
-        scannerRef.current = scanner;
-        await scanner.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 250 } }, (decodedText) => {
-            handleVerification(decodedText);
-            stopScanner();
-        }, () => {});
-      } catch (err) {
-        setScanStatus('error');
-        setErrorMsg('Camera access denied or not found');
-      }
-    }, 100);
-  };
-
-  const stopScanner = async () => {
-    if (scannerRef.current) {
-      try { await scannerRef.current.stop(); scannerRef.current = null; } catch (err) { console.error(err); }
-    }
-  };
-
-  const handleVerification = async (id: string) => {
-    setScanStatus('verifying');
-    try {
-      const { data } = await getVisitorGql({ variables: { id } });
-      if (data?.getVisitor) {
-        setVisitor(data.getVisitor);
-        setScanStatus('success');
-        if (navigator.vibrate) navigator.vibrate([50, 20, 50]);
-      } else {
-        setScanStatus('error');
-        setErrorMsg('Invalid or expired pass');
-      }
-    } catch (err) {
-      setScanStatus('error');
-      setErrorMsg('Network error.');
-    }
-  };
 
   const handleGrantAccess = async (action: 'checkin' | 'completed' | 'forward') => {
     if (!visitor?._id) return;
@@ -564,100 +335,8 @@ export default function GuardTerminal() {
     } catch (err) { console.error(err); }
   };
 
-  const performCapture = useCallback(() => {
-    if (!webcamRefReg.current) return;
-    const imageSrc = webcamRefReg.current.getScreenshot();
-    if (!imageSrc) return;
-    if (captureMode === 'VISITOR') setFormData((prev: any) => ({ ...prev, photoUrl: imageSrc }));
-    else setFormData((prev: any) => ({ ...prev, idProofPhotoUrl: imageSrc }));
-    if (navigator.vibrate) navigator.vibrate([10, 30, 10]);
-  }, [captureMode]);
 
-  const handleQuickRegister = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.name || !formData.phone || !formData.hostId) return alert('Please complete required fields.');
-    if (!formData.photoUrl || (!tenant?.features.aadhaar && !formData.idProofPhotoUrl)) return alert('Photos are required.');
 
-    setIsSubmitting(true);
-    try {
-      const res = await fetch(API_CONFIG.ENDPOINTS.VISITORS + '/register', {
-        method: 'POST', 
-        headers: { 
-          'Content-Type': 'application/json',
-          'x-tenant-id': getTenantId()
-        }, 
-        body: JSON.stringify(formData)
-      });
-      if (res.ok) {
-        setShowQuickEntry(false);
-        setFormData({ 
-          name: '', phone: '', email: '', company: '', purpose: '', hostId: '', hostName: '', 
-          idProofType: 'Aadhar Card', idProofNumber: '', requestedDuration: '1H', hostRemark: '', 
-          photoUrl: '', idProofPhotoUrl: ''
-        });
-        fetchHistory();
-        if (navigator.vibrate) navigator.vibrate([10, 50, 10]);
-      } else {
-        const data = await res.json();
-        alert(data.message || 'Registration failed');
-      }
-    } catch (err) { alert('Network error.'); } 
-    finally { setIsSubmitting(false); }
-  };
-
-  const handleRevisitorSearch = async () => {
-    if (!revisitSearch.trim()) return setRevisitResults([]);
-    setIsSearchingRevisit(true);
-    try {
-      const { data } = await searchRevisitorsGql({
-        variables: {
-          search: revisitSearch,
-          limit: 5
-        }
-      });
-      if (data?.getVisitors) setRevisitResults(data.getVisitors.visitors);
-    } catch (err) {
-      console.error('Revisitor search failed', err);
-    } finally {
-      setIsSearchingRevisit(false);
-    }
-  };
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (revisitSearch.trim().length >= 3) {
-        handleRevisitorSearch();
-      } else if (!revisitSearch.trim()) {
-        setRevisitResults([]);
-      }
-    }, 600);
-    return () => clearTimeout(timer);
-  }, [revisitSearch]);
-
-  const autofillVisitor = (v: Visitor) => {
-    setFormData({
-      ...formData, name: v.name, phone: v.phone, email: v.email || '', company: v.company || '',
-      idProofType: v.idProofType || 'Aadhar Card', idProofNumber: v.idProofNumber || '',
-      // Mandatory new capture: Explicitly clear photo fields
-      photoUrl: '', idProofPhotoUrl: ''
-    });
-    setActiveRegTab('NEW');
-    setRevisitResults([]);
-    setRevisitSearch('');
-  };
-
-  const summary = {
-    applied: auditHistory.length,
-    pending: auditHistory.filter(v => v.status === 'PENDING_GUARD').length,
-    forwarded: auditHistory.filter(v => v.status === 'SENT_FOR_APPROVAL').length,
-    approved: auditHistory.filter(v => v.status === 'APPROVED').length,
-    rejected: auditHistory.filter(v => v.status === 'REJECTED').length,
-    gate_in: auditHistory.filter(v => v.status === 'GATE_IN').length,
-    meet_in: auditHistory.filter(v => v.status === 'MEET_IN').length,
-    meet_out: auditHistory.filter(v => v.status === 'MEET_OUT').length,
-    gate_out: auditHistory.filter(v => v.status === 'GATE_OUT').length,
-    overdue: auditHistory.filter(v => ['GATE_IN', 'MEET_IN', 'MEET_OUT'].includes(v.status) && v.expectedCheckout && new Date(v.expectedCheckout) < new Date()).length
-  };
 
   useEffect(() => {
     if (!guardConfig.autoScan || !visitor || visitor.aadhaarVerified || visitor.status !== 'PENDING_GUARD') return;
@@ -670,49 +349,6 @@ export default function GuardTerminal() {
     
     return () => clearInterval(interval);
   }, [guardConfig.autoScan, visitor, isUploadingAadhaar, aadhaarReviewData]);
-
-  const handleHandover = async () => {
-    // If shiftStats isn't loaded from API yet, fallback to locally calculated stats
-    const statsToSubmit = shiftStats || {
-      GATE_IN: summary.gate_in,
-      GATE_OUT: summary.gate_out,
-      DENIED: summary.rejected
-    };
-
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${API_CONFIG.ENDPOINTS.HANDOVER}/submit`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json', 
-          'Authorization': `Bearer ${token}`,
-          'x-tenant-id': getTenantId()
-        },
-        body: JSON.stringify({
-          gateId: 'MAIN_GATE', // Should be dynamic if multiple gates exist
-          shiftStart: shiftStartRef.current,
-          notes: handoverNotes,
-          stats: statsToSubmit
-        }),
-        credentials: 'include'
-      });
-      if (res.ok) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        router.push('/login');
-      } else if (res.status === 401) {
-        alert('Session expired: Your login token is no longer valid. Forcing logout to unblock the terminal.');
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        router.push('/login');
-      } else {
-        const errorData = await res.json().catch(() => ({}));
-        alert(`Handover failed: ${errorData.message || errorData.error || res.statusText || 'Unknown error'}`);
-      }
-    } catch (err: any) {
-      alert(`Network error during handover: ${err.message}`);
-    }
-  };
 
   if (!mounted) return null;
 

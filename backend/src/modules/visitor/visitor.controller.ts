@@ -12,7 +12,33 @@ import jwt from 'jsonwebtoken';
 export const exportVisitors: RequestHandler = async (req, res) => {
   const { tenantId } = req as TenantRequest;
   try {
-    const cursor = Visitor.find({ tenantId: tenantId! })
+    const { search, startDate, endDate, status } = req.query;
+    const query: any = { tenantId: tenantId! };
+
+    if (status) {
+      if (Array.isArray(status)) {
+        query.status = { $in: status.filter(s => typeof s === 'string') };
+      } else if (typeof status === 'string') {
+        query.status = status;
+      }
+    }
+
+    if (search) {
+      const cleanSearch = (search as string).replace(/[/\-\\^$*+?.()|[\]{}]/g, '\\$&');
+      query.$or = [
+        { name: { $regex: '^' + cleanSearch, $options: 'i' } },
+        { company: { $regex: '^' + cleanSearch, $options: 'i' } },
+        { phone: { $regex: '^' + cleanSearch, $options: 'i' } }
+      ];
+    }
+
+    if (startDate || endDate) {
+      query.createdAt = {};
+      if (startDate) query.createdAt.$gte = new Date(startDate as string);
+      if (endDate) query.createdAt.$lte = new Date(endDate as string);
+    }
+
+    const cursor = Visitor.find(query)
       .populate('hostId', 'name email department')
       .cursor();
 

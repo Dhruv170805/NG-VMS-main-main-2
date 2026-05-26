@@ -544,6 +544,16 @@
   animation: pulse 2s infinite;
 }
 
+.invite_text {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .invite_text {
+    display: inline;
+  }
+}
+
 @keyframes shimmer {
   0% { left: -100%; }
   100% { left: 200%; }

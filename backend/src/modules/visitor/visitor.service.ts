@@ -59,7 +59,7 @@ export class VisitorService {
     
     // Automatically generate Visitor Signature when visitor submits form
     const signedAt = new Date();
-    const hash = crypto.createHmac('sha256', process.env.LICENSE_SECRET || 'default-secret-key-123')
+    const hash = crypto.createHmac('sha256', process.env.LICENSE_SECRET!)
       .update(`${visitor._id}:${visitor.name}:${signedAt.toISOString()}:REGISTERED`)
       .digest('hex');
     
@@ -184,7 +184,7 @@ export class VisitorService {
 
       const hostName = visitor.hostName || actor.name;
       const signedAt = new Date();
-      const hash = crypto.createHmac('sha256', process.env.LICENSE_SECRET || 'default-secret-key-123')
+      const hash = crypto.createHmac('sha256', process.env.LICENSE_SECRET!)
         .update(`${id}:${hostName}:${signedAt.toISOString()}:APPROVED`)
         .digest('hex');
       dbUpdate.hostSignature = {
@@ -208,7 +208,7 @@ export class VisitorService {
     if (finalStatus === 'GATE_IN') {
       dbUpdate.checkInTime = new Date();
       const signedAt = new Date();
-      const hash = crypto.createHmac('sha256', process.env.LICENSE_SECRET || 'default-secret-key-123')
+      const hash = crypto.createHmac('sha256', process.env.LICENSE_SECRET!)
         .update(`${id}:${actor.name}:${signedAt.toISOString()}:GATE_IN`)
         .digest('hex');
       dbUpdate.guardSignature = {
@@ -383,7 +383,7 @@ export class VisitorService {
   }
 
   static generateSignatureHash(visitorId: string, actor: string, timestamp: Date, status: string): string {
-    const secret = process.env.LICENSE_SECRET || 'default-secret-key-123';
+    const secret = process.env.LICENSE_SECRET!;
     const payload = `${visitorId}:${actor}:${timestamp.toISOString()}:${status}`;
     return crypto.createHmac('sha256', secret).update(payload).digest('hex');
   }

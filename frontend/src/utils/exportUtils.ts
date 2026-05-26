@@ -2,6 +2,7 @@ import * as XLSX from 'xlsx-js-style';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Visitor, ExportConfig } from '../../components/admin/types';
+import { API_CONFIG } from '../../app/config';
 
 export const handleQuickExport = (visitors: Visitor[]) => {
   if (visitors.length === 0) {
@@ -89,19 +90,13 @@ export const generateAdvancedExport = async (
     let columns: string[] = [];
 
     if (exportConfig.downloadType === 'full') {
-      exportData = data.map((v: any) => ({
-        'VID': v._id.substring(v._id.length - 6).toUpperCase(),
-        'Visitor Name': v.name,
-        'Phone': v.phone,
-        'Company': v.company || 'N/A',
-        'Purpose': v.purpose,
-        'Host Name': v.hostId?.name || v.hostName || 'N/A',
-        'Status': v.status,
-        'Gate In': v.checkInTime ? new Date(v.checkInTime).toLocaleString() : 'N/A',
-        'Gate Out': v.checkOutTime ? new Date(v.checkOutTime).toLocaleString() : 'N/A',
-        'Created At': new Date(v.createdAt).toLocaleString()
-      }));
-      columns = ['VID', 'Visitor Name', 'Phone', 'Company', 'Purpose', 'Host Name', 'Status', 'Gate In', 'Gate Out', 'Created At'];
+      // Direct stream download for OOM safety
+      const qs = params.toString();
+      window.open(`${API_CONFIG.ENDPOINTS.VISITORS}/export?${qs}`, '_blank');
+      setUploadStatus({ message: 'Export started. Check your downloads.', type: 'success' });
+      setShowExportModal(false);
+      setTimeout(() => setUploadStatus({ message: '', type: '' }), 3000);
+      return;
     } else if (exportConfig.downloadType === 'count') {
       exportData = [{
         'Total Visitors': data.length,
