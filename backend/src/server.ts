@@ -77,20 +77,27 @@ const allowedOrigins = new Set(
 
 const corsOptions: cors.CorsOptions = {
   origin: (origin, callback) => {
+    const host = process.env.SERVER_HOST || 'localhost';
+    
     // Allow server-to-server (no Origin) and explicitly allowed origins
     if (!origin || allowedOrigins.has(origin)) {
       callback(null, true);
     } else {
       try {
-        const hostname = new URL(origin).hostname;
-        const isIp = /^\d{1,3}(?:\.\d{1,3}){3}$/.test(hostname) || hostname.includes(':') || hostname === 'localhost' || hostname === '127.0.0.1';
+        const originUrl = new URL(origin);
+        const hostname = originUrl.hostname;
         
-        if (isIp) {
+        // Dynamic Origin Detection: Allow if it matches the base domain or is a local hostname
+        const isIp = /^\d{1,3}(?:\.\d{1,3}){3}$/.test(hostname) || hostname.includes(':') || hostname === 'localhost' || hostname === '127.0.0.1';
+        const isLocal = hostname.endsWith('.local') || hostname.endsWith('.lan') || hostname.endsWith('.home') || hostname.endsWith('.patel');
+        
+        if (isIp || isLocal || hostname === baseDomain || hostname.endsWith('.' + baseDomain)) {
           callback(null, true);
           return;
         }
-        
-        if (hostname === baseDomain || hostname.endsWith('.' + baseDomain)) {
+
+        // IIS/ARR Proxy Support: If the origin matches the server host name, allow it
+        if (hostname === host || hostname.endsWith('.' + host)) {
           callback(null, true);
           return;
         }

@@ -69,12 +69,17 @@ export const tenantMiddleware = async (req: Request, res: Response, next: NextFu
 
   try {
     let tenant = await Tenant.findOne({ subdomain });
-    if (!tenant && (subdomain === 'demo' || subdomain === 'localhost' || subdomain === 'default')) {
+    
+    // God-Level Fallback: If tenant not found by subdomain, and we are in relaxed/local mode, 
+    // fall back to the first available tenant. This handles single-tenant IIS/LAN installs perfectly.
+    const isRelaxedMode = subdomain === 'demo' || subdomain === 'localhost' || subdomain === 'default' || process.env.ALLOW_UNSIGNED_LICENSE === 'true';
+    
+    if (!tenant && isRelaxedMode) {
       tenant = await Tenant.findOne();
     }
 
     if (!tenant) {
-      return res.status(404).json({ error: 'Tenant not found' });
+      return res.status(404).json({ error: `Tenant '${subdomain}' not found and no fallback available.` });
     }
 
     // License Validation Check
