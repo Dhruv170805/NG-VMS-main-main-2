@@ -50,8 +50,13 @@ export const tenantMiddleware = async (req: Request, res: Response, next: NextFu
       subdomain = 'demo';
     } else if (!isIp) {
       const parts = hostname.split('.');
-      if (parts.length > 2) {
-        subdomain = parts[0];
+      if (parts.length >= 2) {
+        // If first part is 'www', use the second part as tenant
+        if (parts[0].toLowerCase() === 'www' && parts.length > 1) {
+          subdomain = parts[1];
+        } else {
+          subdomain = parts[0];
+        }
       } else {
         subdomain = 'demo';
       }

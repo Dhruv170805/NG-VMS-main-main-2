@@ -26,6 +26,16 @@ services:
       LICENSE_SECRET: ${LICENSE_SECRET:-default-secret-key-123}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:-default-secret-key-123}
       ALLOW_UNSIGNED_LICENSE: "true"
+    deploy:
+      resources:
+        limits:
+          cpus: '1.5'
+          memory: 2G
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:5000/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
     depends_on:
       mongo:
         condition: service_healthy
@@ -41,11 +51,22 @@ services:
   frontend:
     image: ngvms-frontend:latest
     container_name: ngvms_frontend
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-/api/v1}
+        - NEXT_PUBLIC_SOCKET_URL=${NEXT_PUBLIC_SOCKET_URL:-/}
     restart: unless-stopped
     ports:
       - "127.0.0.1:3000:3000" # Exposed for IIS Proxy
     environment:
       NODE_ENV: production
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
     depends_on:
       backend:
         condition: service_started

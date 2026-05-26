@@ -39,8 +39,8 @@ export const getTenantId = () => {
   // 3. Fallback to Hostname (standard multi-tenant resolution)
   const hostname = window.location.hostname;
   const parts = hostname.split('.');
-  if (parts.length > 2) {
-    if (parts[0].toLowerCase() === 'www') return parts[1];
+  if (parts.length >= 2) {
+    if (parts[0].toLowerCase() === 'www' && parts.length > 1) return parts[1];
     return parts[0];
   }
   
