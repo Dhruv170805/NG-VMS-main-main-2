@@ -70,6 +70,8 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     // Check for custom multi-tenant subdomains
     if (parts.length > 2) {
+      // Ignore 'www' prefix
+      if (parts[0].toLowerCase() === 'www') return parts[1];
       return parts[0];
     }
 
