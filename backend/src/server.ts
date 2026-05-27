@@ -21,6 +21,9 @@ import { createAdapter } from '@socket.io/redis-adapter';
 import { validateEnv } from './config/env';
 import logger from './utils/logger';
 import requestLogger from './middleware/requestLogger';
+import { connectDB } from './config/db';
+import { runStartupBootstrap } from './startup/bootstrap';
+import { setupSocketHandlers } from './sockets/SocketController';
 import redisConnection from './config/redis';
 import { initQueues } from './queues/queueSetup';
 
@@ -214,10 +217,7 @@ app.use((req, res, next) => {
 
 app.use(requestLogger); // Structured Request Logging
 
-// Apply Tenant Middleware to all versioned and base API routes
-app.use('/api/v1', tenantMiddleware);
-app.use('/api', tenantMiddleware);
-
+// Apply rate limiters globally
 app.use('/api/v1', limiter);
 app.use('/api', limiter);
 app.use('/api/v1/auth/login', authLimiter);
@@ -252,212 +252,24 @@ app.set('socketio', io);
 const MONGODB_URI = process.env.NODE_ENV === 'test'
   ? (process.env.TEST_MONGODB_URI || 'mongodb://127.0.0.1:27017/ng-vms-integration-tests?directConnection=true')
   : (process.env.MONGODB_URI || 'mongodb://localhost:27017/ng-vms');
-mongoose
-  .connect(MONGODB_URI, {
-    maxPoolSize: 20,
-    minPoolSize: 5,
-    serverSelectionTimeoutMS: 5000,
-    socketTimeoutMS: 45000,
-  })
+
+connectDB(MONGODB_URI)
   .then(async () => {
-    mongoose.connection.setMaxListeners(25);
-    logger.info('[NG-VMS] Connected to MongoDB');
     
     // Initialize BullMQ background queues
     await initQueues();
 
     // Auto-bootstrap or update tenant license from files dynamically on startup
     try {
-      if (process.env.NODE_ENV === 'test') return;
-      
-      const searchDirs = [
-        process.cwd(),
-        path.join(process.cwd(), 'shared')
-      ];
-      const foundLicenses: { path: string; filename: string; key: string; companyCode: string }[] = [];
-
-      // Check explicit environment variable first
-      if (process.env.LICENSE_KEY_PATH && fs.existsSync(process.env.LICENSE_KEY_PATH)) {
-        try {
-          const key = await fs.promises.readFile(process.env.LICENSE_KEY_PATH, 'utf8');
-          if (key && key.trim()) {
-            const filename = path.basename(process.env.LICENSE_KEY_PATH);
-            const match = filename.match(/^([a-zA-Z0-9_-]+)&([a-zA-Z0-9_-]+)_NGS\.lic$/i);
-            const companyCode = match ? match[1] : 'default';
-            foundLicenses.push({ path: process.env.LICENSE_KEY_PATH, filename, key: key.trim(), companyCode });
-          }
-        } catch (err) {}
-      }
-
-      // Check directories for *_NGS.lic
-      for (const dir of searchDirs) {
-        if (!fs.existsSync(dir)) continue;
-        try {
-          const files = await fs.promises.readdir(dir);
-          for (const file of files) {
-            const isNgsLic = file.toLowerCase().endsWith('_ngs.lic');
-            if (isNgsLic) {
-              const fullPath = path.join(dir, file);
-              try {
-                const key = await fs.promises.readFile(fullPath, 'utf8');
-                if (key && key.trim()) {
-                  const match = file.match(/^([a-zA-Z0-9_-]+)&([a-zA-Z0-9_-]+)_NGS\.lic$/i);
-                  const companyCode = match ? match[1] : 'default';
-                  foundLicenses.push({ path: fullPath, filename: file, key: key.trim(), companyCode });
-                }
-              } catch (err) {}
-            }
-          }
-        } catch (err) {}
-      }
-
-      const securityManager = SecurityManager.getInstance();
-
-      // Process each found license key
-      for (const lic of foundLicenses) {
-        const validation = await securityManager.validateTenantLicense(lic.key);
-        if (!validation.valid) {
-          console.warn(`[NG-VMS] Found license file at ${lic.path} but validation failed: ${validation.reason}`);
-          continue;
-        }
-
-        const data = validation.data!;
-        const companyCode = (lic.companyCode || data.companyCode || data.company || 'default').toLowerCase().replace(/[^a-z0-9_-]/g, '');
-
-        const status = await BootstrapService.checkStatus();
-        if (status.bootstrapRequired) {
-          console.log(`[NG-VMS] Clean database detected. Auto-bootstrapping using license from ${lic.path}...`);
-          const companyName = data.company || 'Enterprise Corporation';
-          const adminEmail = data.rootAdmin?.id || 'admin@enterprise.com';
-          const adminPassword = data.rootAdmin?.password || 'password123';
-
-          await BootstrapService.runBootstrap({
-            companyName,
-            subdomain: companyCode,
-            adminName: 'System Administrator',
-            adminEmail,
-            adminPassword,
-            guardName: 'Main Gate Guard',
-            guardEmail: `guard@${companyCode}.com`,
-            guardPassword: adminPassword,
-            licenseKey: lic.key
-          });
-          console.log(`[NG-VMS] Auto-bootstrapping complete! Tenant: ${companyName}, Subdomain: ${companyCode}, Admin: ${adminEmail}`);
-        } else {
-          // If already bootstrapped, check for dynamic update/alignment
-          await BootstrapService.updateTenantLicense(lic.key, data, companyCode);
-        }
-      }
+      await runStartupBootstrap();
     } catch (err: any) {
-      console.error('[NG-VMS] Dynamic license processing error:', err.message);
+      logger.error('[NG-VMS] Dynamic license processing error: ' + err.message);
     }
   })
-  .catch((err) => console.error('[NG-VMS] MongoDB Connection Error:', err));
+  .catch((err) => logger.error('[NG-VMS] MongoDB Connection Error: ' + err));
 
-// Socket.io Authentication Middleware
-io.use((socket, next) => {
-  let token = socket.handshake.auth?.token;
-  
-  if (!token && socket.request.headers.cookie) {
-    const cookies = socket.request.headers.cookie.split(';').map(c => c.trim());
-    const tokenCookie = cookies.find(c => c.startsWith('token='));
-    if (tokenCookie) {
-      token = tokenCookie.split('=')[1];
-    }
-  }
-
-  if (!token) {
-    // Non-authenticated socket (e.g. public visitor viewing a pass)
-    return next();
-  }
-
-  try {
-    const secret = process.env.JWT_SECRET;
-    if (!secret) {
-      return next(new Error('JWT_SECRET is not configured'));
-    }
-    const decoded = jwt.verify(token, secret) as { id: string, name: string, role: string, tenantId: string };
-    (socket as any).user = decoded;
-    (socket as any).tenantId = decoded.tenantId;
-    next();
-  } catch (error) {
-    console.error('[SOCKET AUTH] Auth Error:', error);
-    next(new Error('Authentication failed'));
-  }
-});
-
-// Socket.io Event Handlers
-io.on('connection', (socket) => {
-  const user = (socket as any).user;
-  const tenantId = (socket as any).tenantId;
-
-  if (tenantId) {
-    // Automically join the global tenant room for updates
-    socket.join(`tenant_${tenantId}`);
-  }
-
-  socket.on('ping', () => socket.emit('pong'));
-
-  socket.on('join:host', (hostId: string) => {
-    // Hosts must be authenticated within a tenant context
-    if (!tenantId) {
-      return;
-    }
-    socket.join(`tenant_${tenantId}_host_${hostId}`);
-  });
-
-  let lastJoinTime = 0;
-  let joinRequests = 0;
-
-  socket.on('join:visitor', async (data: any) => {
-    try {
-      const visitorId = typeof data === 'string' ? data : data.visitorId;
-      const socketToken = typeof data === 'object' ? data.socketToken : null;
-
-      const now = Date.now();
-      if (now - lastJoinTime < 5000) {
-        joinRequests++;
-        if (joinRequests > 5) {
-          socket.emit('error', 'Too many join requests. Back off.');
-          return;
-        }
-      } else {
-        joinRequests = 1;
-      }
-      lastJoinTime = now;
-
-      if (!mongoose.Types.ObjectId.isValid(visitorId)) return;
-      const visitor = await mongoose.model('Visitor').findOne({ _id: visitorId }) as any;
-      if (visitor) {
-        // Strict tenant boundary: if authenticated, socket tenantId must match visitor tenantId
-        if (tenantId && tenantId.toString() !== visitor.tenantId.toString()) {
-          return;
-        }
-
-        // Unauthenticated users MUST provide a valid short-lived socket token
-        if (!tenantId) {
-          if (!socketToken) return;
-          try {
-            const decoded = jwt.verify(socketToken, process.env.JWT_SECRET as string) as any;
-            if (decoded.visitorId !== visitorId || decoded.type !== 'socket') {
-              return;
-            }
-          } catch (e) {
-            return;
-          }
-        }
-
-        socket.join(`tenant_${visitor.tenantId}_visitor_${visitorId}`);
-      }
-    } catch (err) {
-      // Safe catch
-    }
-  });
-
-  socket.on('disconnect', () => {
-    // Intentionally silent — handled by redis adapter
-  });
-});
+// Socket.io Event Handlers Setup
+setupSocketHandlers(io);
 
 // API Routes
 app.get('/', (_req, res) =>
@@ -465,16 +277,17 @@ app.get('/', (_req, res) =>
 );
 
 const registerRoutes = (prefix: string) => {
-  app.use(`${prefix}/auth`, authRoutes);
-  app.use(`${prefix}/visitors`, visitorRoutes);
-  app.use(`${prefix}/bootstrap`, bootstrapRoutes);
-  app.use(`${prefix}/system`, systemRoutes);
-  app.use(`${prefix}/analytics`, analyticsRoutes);
-  app.use(`${prefix}/employees`, employeeRoutes);
-  app.use(`${prefix}/gate`, gateRoutes);
-  app.use(`${prefix}/handover`, handoverRoutes);
-  app.use(`${prefix}/blacklist`, blacklistRoutes);
-  app.use(`${prefix}/aadhaar`, aadhaarRoutes);
+  app.use(`${prefix}/bootstrap`, bootstrapRoutes); // Public
+  
+  app.use(`${prefix}/auth`, tenantMiddleware, authRoutes);
+  app.use(`${prefix}/visitors`, tenantMiddleware, visitorRoutes);
+  app.use(`${prefix}/system`, tenantMiddleware, systemRoutes);
+  app.use(`${prefix}/analytics`, tenantMiddleware, analyticsRoutes);
+  app.use(`${prefix}/employees`, tenantMiddleware, employeeRoutes);
+  app.use(`${prefix}/gate`, tenantMiddleware, gateRoutes);
+  app.use(`${prefix}/handover`, tenantMiddleware, handoverRoutes);
+  app.use(`${prefix}/blacklist`, tenantMiddleware, blacklistRoutes);
+  app.use(`${prefix}/aadhaar`, tenantMiddleware, aadhaarRoutes);
 };
 
 const PORT = Number(process.env.PORT) || 5000;

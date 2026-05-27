@@ -44,7 +44,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       const res = await fetch(`${API_CONFIG.ENDPOINTS.AUTH}/me`, {
         headers,
-        credentials: 'include'
+        credentials: 'include',
+        cache: 'no-store'
       });
       if (res.ok) {
         const data = await res.json();

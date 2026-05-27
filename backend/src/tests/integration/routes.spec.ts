@@ -45,7 +45,7 @@ describe('NG-VMS API Integration Tests', () => {
       expect(res.body).toHaveProperty('message');
     });
 
-    it('should return 400 if tenant header is missing', async () => {
+    it('should login successfully even if tenant header is missing (due to auto-bind)', async () => {
       const res = await request(app)
         .post('/api/v1/auth/login')
         .send({
@@ -53,8 +53,8 @@ describe('NG-VMS API Integration Tests', () => {
           password: 'Password123!'
         });
 
-      expect(res.status).toBe(400);
-      expect(res.body.error).toContain('Tenant identifier missing');
+      expect(res.status).toBe(200);
+      expect(res.body.email).toBe('admin@test.com');
     });
   });
 

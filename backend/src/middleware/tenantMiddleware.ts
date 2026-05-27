@@ -9,67 +9,34 @@ export const tenantMiddleware = async (req: Request, res: Response, next: NextFu
     return next();
   }
 
-  // Exempt routes that don't require a tenant context (e.g., bootstrap and health checks)
-  // We also exempt the license update route so a locked system can still be unlocked
-  const exemptRoutes = [
-    '/api/v1/bootstrap', '/api/v1/system/health', '/api/v1/system/version', '/api/v1/system/config', '/api/v1/system/license',
-    '/api/bootstrap', '/api/system/health', '/api/system/version', '/api/system/config', '/api/system/license',
-    '/bootstrap', '/system/health', '/system/version', '/system/config', '/system/license'
-  ];
-  if (exemptRoutes.some(route => req.originalUrl.startsWith(route))) {
-    const subdomain = req.headers['x-tenant-id'] as string;
-    try {
-      let tenant = null;
-      if (subdomain) {
-        tenant = await Tenant.findOne({ subdomain });
-      }
-      
-      // Auto-bind for exempt routes if no explicit subdomain is found, but ONLY if there is exactly 1 tenant
-      if (!tenant) {
-        const tenantCount = await Tenant.countDocuments();
-        if (tenantCount === 1) {
-          tenant = await Tenant.findOne();
-        }
-      }
-
-      if (tenant) {
-        const tenantReq = req as TenantRequest;
-        tenantReq.tenant = tenant;
-        tenantReq.tenantId = tenant._id as mongoose.Types.ObjectId;
-      }
-    } catch (error) {
-      console.error('[TENANT MIDDLEWARE] Safe extract error:', error);
-    }
-    return next();
-  }
+  // Exempt routes that do not require strict license locks
+  // We use regex to match regardless of API prefix (v1, v2, none)
+  const isExempt = /^\/(api\/(v\d+\/)?)?(bootstrap|system\/health|system\/version|system\/config|system\/license|auth)/i.test(req.originalUrl);
 
   let subdomain = req.headers['x-tenant-id'] as string;
 
   if (!subdomain) {
-    // Fallback: extract subdomain from Host header to handle IIS / Proxies
-    // Check x-forwarded-host or x-original-host (IIS ARR) first, then host
+    // Robust Host Extraction (IIS, Proxy, Localhost)
     const forwardedHost = req.headers['x-forwarded-host'] || req.headers['x-original-host'] || req.headers.host || '';
     const hostStr = Array.isArray(forwardedHost) ? forwardedHost[0] : forwardedHost;
-    const hostname = hostStr.split(':')[0];
     
-    // Check if accessed via IP or local network dynamic names
-    const isIp = /^\d{1,3}(?:\.\d{1,3}){3}$/.test(hostname) || hostname.includes(':') || hostname === 'localhost' || hostname === '127.0.0.1';
-    const isDynamicLocal = hostname.endsWith('.local') || hostname.endsWith('.lan') || hostname.endsWith('.internal');
-    
-    if (!isIp && !isDynamicLocal) {
-      const parts = hostname.split('.');
-      if (parts.length >= 2) {
-        // If first part is 'www', use the second part as tenant
-        if (parts[0].toLowerCase() === 'www' && parts.length > 1) {
-          subdomain = parts[1];
-        } else {
-          subdomain = parts[0];
+    try {
+      // Use URL parsing to safely extract hostname without ports
+      const hostname = new URL(`http://${hostStr}`).hostname;
+      
+      const isIp = /^\d{1,3}(?:\.\d{1,3}){3}$/.test(hostname) || hostname === 'localhost';
+      const isDynamicLocal = hostname.endsWith('.local') || hostname.endsWith('.lan') || hostname.endsWith('.internal');
+      
+      if (!isIp && !isDynamicLocal) {
+        const parts = hostname.split('.');
+        if (parts.length >= 2) {
+          subdomain = parts[0].toLowerCase() === 'www' && parts.length > 1 ? parts[1] : parts[0];
         }
       }
+    } catch (e) {
+      console.warn('[TENANT MIDDLEWARE] Hostname parsing error', e);
     }
   }
-
-
 
   try {
     let tenant = null;
@@ -77,16 +44,12 @@ export const tenantMiddleware = async (req: Request, res: Response, next: NextFu
       tenant = await Tenant.findOne({ subdomain });
     }
 
-    // Single-Tenant Auto-Bind & Relaxed Mode
     const isRelaxedMode = subdomain === 'demo' || subdomain === 'localhost' || subdomain === 'default' || process.env.ALLOW_UNSIGNED_LICENSE === 'true';
-    
-    // If we have no explicit subdomain found (IP or localhost without query param),
-    // and there is EXACTLY ONE tenant in the database (or we are in relaxed mode), automatically bind to it.
-    // Skip auto-bind in tests to verify strict tenant validation unless in relaxed mode.
     const isTest = process.env.NODE_ENV === 'test';
 
-    if (!tenant && (!subdomain || isRelaxedMode)) {
-      if (!isTest || isRelaxedMode) {
+    // Auto-bind for single tenant environments
+    if (!tenant && (!subdomain || isRelaxedMode || isExempt)) {
+      if (!isTest || isRelaxedMode || isExempt) {
         const tenantCount = await Tenant.countDocuments();
         if (tenantCount === 1 || isRelaxedMode) {
           tenant = await Tenant.findOne();
@@ -94,17 +57,21 @@ export const tenantMiddleware = async (req: Request, res: Response, next: NextFu
       }
     }
 
-    if (!tenant) {
+    // Identify Tenant
+    if (tenant) {
+      const tenantReq = req as TenantRequest;
+      tenantReq.tenant = tenant;
+      tenantReq.tenantId = tenant._id as mongoose.Types.ObjectId;
+    } else if (!isExempt) {
       if (!subdomain) {
         return res.status(400).json({ error: 'Tenant identifier missing (x-tenant-id header required) and auto-bind failed' });
       }
-      return res.status(404).json({ error: `Tenant '${subdomain}' not found and no fallback available.` });
+      return res.status(404).json({ error: `Tenant '${subdomain}' not found.` });
     }
 
-    // License Validation Check
-    // We must allow auth routes to bypass the strict license lock so admins can log in to update the license.
-    if (!req.originalUrl.startsWith('/api/v1/auth') && !req.originalUrl.startsWith('/api/auth') && !req.originalUrl.startsWith('/auth')) {
-      if (!tenant.licenseKey) {
+    // License Lock Enforcement
+    if (!isExempt) {
+      if (!tenant?.licenseKey) {
         return res.status(403).json({ error: 'System locked: No valid license found.' });
       }
       
@@ -115,7 +82,6 @@ export const tenantMiddleware = async (req: Request, res: Response, next: NextFu
         return res.status(403).json({ error: `System locked: ${licenseCheck.reason}` });
       }
 
-      // Ensure the license is bound to this specific tenant subdomain
       const licenseCompanyCode = licenseCheck.data?.companyCode;
       if (!licenseCompanyCode) {
         if (process.env.NODE_ENV === 'production') {
@@ -126,9 +92,6 @@ export const tenantMiddleware = async (req: Request, res: Response, next: NextFu
       }
     }
 
-    const tenantReq = req as TenantRequest;
-    tenantReq.tenant = tenant;
-    tenantReq.tenantId = tenant._id as mongoose.Types.ObjectId;
     next();
   } catch (error) {
     console.error('[TENANT MIDDLEWARE] Error:', error);
