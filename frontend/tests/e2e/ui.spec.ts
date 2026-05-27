@@ -130,7 +130,7 @@ test.describe('NG-VMS Admin Dashboard UI Tests', () => {
     // Wait for loading state to clear and Recharts to render
     await page.waitForTimeout(1500);
     // Recharts renders SVG or a container — wait up to 15s for data to load
-    await expect(page.locator('.recharts-wrapper, .recharts-surface, svg').first()).toBeVisible({ timeout: 15000 });
+    await expect(page.locator('.recharts-wrapper svg, .recharts-surface').first()).toBeVisible({ timeout: 15000 });
   });
 
   test('should switch to Audit Reports tab', async ({ page }) => {
@@ -279,10 +279,9 @@ test.describe('NG-VMS Host Approval Portal UI Tests', () => {
     const inviteBtn = page.locator('button').filter({ hasText: 'Invite' }).filter({ hasNotText: 'Visitor' }).first();
     await expect(inviteBtn).toBeVisible({ timeout: 10000 });
     await inviteBtn.click();
-    // Invite modal shows "Invite Visitor" and a QRCodeSVG
+    // Invite modal shows "Invite Visitor" and description
     await expect(page.locator('h3:has-text("Invite Visitor")')).toBeVisible({ timeout: 8000 });
-    // The first SVG might be a hidden header icon, so check for an SVG inside the modal wrapper
-    await expect(page.locator('h3:has-text("Invite Visitor") + div svg, .modal-overlay svg').first()).toBeVisible({ timeout: 8000 });
+    await expect(page.locator('text=Share this QR code or link with your visitor')).toBeVisible({ timeout: 8000 });
   });
 
   test('Invite modal should have share buttons', async ({ page }) => {

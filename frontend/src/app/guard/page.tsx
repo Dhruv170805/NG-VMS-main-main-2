@@ -69,6 +69,14 @@ export default function GuardTerminal() {
   // Refs
   const shiftStartRef = useRef(new Date().toISOString());
 
+  // Enforce Auth Redirect
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user) {
+      router.push('/login');
+    }
+  }, [authLoading, user, router]);
+
   const summary = {
     applied: auditHistory.length,
     pending: auditHistory.filter(v => v.status === 'PENDING_GUARD').length,
