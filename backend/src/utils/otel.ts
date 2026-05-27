@@ -13,17 +13,23 @@ import { diag, DiagConsoleLogger, DiagLogLevel } from '@opentelemetry/api';
 // Suppress noisy OTEL logs during development
 diag.setLogger(new DiagConsoleLogger(), DiagLogLevel.WARN);
 
-const prometheusExporter = new PrometheusExporter({
-  port: parseInt(process.env.OTEL_METRICS_PORT || '9464', 10),
-  host: process.env.OTEL_METRICS_HOST || '0.0.0.0', // Explicitly bind to IPv4
-});
+const isTest = process.env.NODE_ENV === 'test';
+const metricReaders = [];
+
+if (!isTest) {
+  const prometheusExporter = new PrometheusExporter({
+    port: parseInt(process.env.OTEL_METRICS_PORT || '9464', 10),
+    host: process.env.OTEL_METRICS_HOST || '0.0.0.0',
+  });
+  metricReaders.push(prometheusExporter);
+}
 
 const sdk = new NodeSDK({
   resource: resourceFromAttributes({
     [SEMRESATTRS_SERVICE_NAME]: 'ng-vms-backend',
     [SEMRESATTRS_DEPLOYMENT_ENVIRONMENT]: process.env.NODE_ENV || 'development',
   }),
-  metricReaders: [prometheusExporter],
+  metricReaders,
   // Explicitly disable tracing to prevent OTLP connection errors
   traceExporter: {
     export: (spans, resultCallback) => resultCallback({ code: 0 }),
@@ -51,6 +57,8 @@ export const shutdownTracing = async () => {
 
 export const startOtel = () => {
   sdk.start();
-  const port = process.env.OTEL_METRICS_PORT || '9464';
-  console.log(`AETHER Runtime Intelligence (OTEL) Active at :${port}`);
+  if (process.env.NODE_ENV !== 'test') {
+    const port = process.env.OTEL_METRICS_PORT || '9464';
+    console.log(`AETHER Runtime Intelligence (OTEL) Active at :${port}`);
+  }
 };

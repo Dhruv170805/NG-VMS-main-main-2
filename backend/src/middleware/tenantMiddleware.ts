@@ -82,10 +82,15 @@ export const tenantMiddleware = async (req: Request, res: Response, next: NextFu
     
     // If we have no explicit subdomain found (IP or localhost without query param),
     // and there is EXACTLY ONE tenant in the database (or we are in relaxed mode), automatically bind to it.
+    // Skip auto-bind in tests to verify strict tenant validation unless in relaxed mode.
+    const isTest = process.env.NODE_ENV === 'test';
+
     if (!tenant && (!subdomain || isRelaxedMode)) {
-      const tenantCount = await Tenant.countDocuments();
-      if (tenantCount === 1 || isRelaxedMode) {
-        tenant = await Tenant.findOne();
+      if (!isTest || isRelaxedMode) {
+        const tenantCount = await Tenant.countDocuments();
+        if (tenantCount === 1 || isRelaxedMode) {
+          tenant = await Tenant.findOne();
+        }
       }
     }
 

@@ -268,6 +268,8 @@ mongoose
 
     // Auto-bootstrap or update tenant license from files dynamically on startup
     try {
+      if (process.env.NODE_ENV === 'test') return;
+      
       const searchDirs = [
         process.cwd(),
         path.join(process.cwd(), 'shared')
