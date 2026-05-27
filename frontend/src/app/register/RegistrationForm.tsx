@@ -75,10 +75,13 @@ const VisitorRegistration: React.FC = () => {
         
         // Explicitly set backend to prevent WASM streaming compile errors in dev/Playwright
         try {
+          // @ts-ignore - setBackend exists on runtime tfjs but may not be in type definitions
           await faceapi.tf.setBackend('webgl');
         } catch {
+          // @ts-ignore
           await faceapi.tf.setBackend('cpu');
         }
+        // @ts-ignore - ready exists on runtime tfjs but may not be in type definitions
         await faceapi.tf.ready();
 
         await Promise.all([
