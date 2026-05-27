@@ -69,9 +69,7 @@ export const tenantMiddleware = async (req: Request, res: Response, next: NextFu
     }
   }
 
-  if (!subdomain) {
-    return res.status(400).json({ error: 'Tenant identifier missing (x-tenant-id header required)' });
-  }
+
 
   try {
     let tenant = null;
@@ -92,6 +90,9 @@ export const tenantMiddleware = async (req: Request, res: Response, next: NextFu
     }
 
     if (!tenant) {
+      if (!subdomain) {
+        return res.status(400).json({ error: 'Tenant identifier missing (x-tenant-id header required) and auto-bind failed' });
+      }
       return res.status(404).json({ error: `Tenant '${subdomain}' not found and no fallback available.` });
     }
 
