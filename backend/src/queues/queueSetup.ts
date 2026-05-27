@@ -34,6 +34,19 @@ export const imageQueue = new Queue('image-optimization', {
   },
 });
 
+export const auditQueue = new Queue('audit-logging', {
+  connection: redisConnection,
+  defaultJobOptions: {
+    removeOnComplete: true,
+    removeOnFail: 1000,
+    attempts: 3,
+    backoff: {
+      type: 'exponential',
+      delay: 1000,
+    },
+  },
+});
+
 // Import workers to ensure they are loaded and listening to queues
 import './workers';
 

@@ -1,6 +1,6 @@
 import { gql } from '@apollo/client';
 import { useLazyQuery } from '@apollo/client/react';
-import { Visitor } from '../../components/guard/types';
+import { Visitor } from '@/components/guard/types';
 
 export const GET_VISITORS_QUERY = gql`
   query GetVisitors($search: String, $limit: Int) {

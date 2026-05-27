@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
-import Visitor from '../../models/Visitor';
-import VisitorLog from '../../models/VisitorLog';
+import Visitor from '../visitor/visitor.model';
+import VisitorLog from './visitorLog.model';
 
 export class AnalyticsService {
   static async getVisitorTraffic(days: number, tenantId: mongoose.Types.ObjectId) {

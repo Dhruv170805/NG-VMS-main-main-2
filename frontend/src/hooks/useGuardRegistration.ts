@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { API_CONFIG } from '../../app/config';
-import { Visitor } from '../../components/guard/types';
-import { useVisitorQueries } from './useVisitorQueries';
-import { useTenant } from '../../app/TenantContext';
+import { API_CONFIG } from '@/app/config';
+import { Visitor } from '@/components/guard/types';
+import { useVisitorQueries } from '@/hooks/useVisitorQueries';
+import { useTenant } from '@/context/TenantContext';
 import Webcam from 'react-webcam';
 
 export const useGuardRegistration = (

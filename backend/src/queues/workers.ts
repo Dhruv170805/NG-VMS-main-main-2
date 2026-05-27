@@ -1,10 +1,11 @@
 import { Worker, Job } from 'bullmq';
 import redisConnection from '../config/redis';
-import Visitor from '../models/Visitor';
-import Employee from '../models/Employee';
+import Visitor from '../modules/visitor/visitor.model';
+import Employee from '../modules/employee/employee.model';
 import { notifySecurityOverstay } from '../utils/notificationService';
 import logger from '../utils/logger';
 import { optimizeImage } from '../utils/imageOptimizer';
+import { encrypt } from '../utils/encryption';
 
 // 1. Overstay Worker
 export const overstayWorker = new Worker(
@@ -131,7 +132,7 @@ emailWorker.on('failed', (job, err) => {
 export const imageWorker = new Worker(
   'image-optimization',
   async (job: Job) => {
-    const { visitorId, photoUrl, idProofPhotoUrl } = job.data;
+    const { visitorId, photoUrl, idProofPhotoUrl, idProofPreviewImage } = job.data;
     logger.info({ visitorId, jobId: job.id }, 'Running background image optimization job');
 
     try {
@@ -141,6 +142,10 @@ export const imageWorker = new Worker(
       }
       if (idProofPhotoUrl) {
         updateData.idProofPhotoUrl = await optimizeImage(idProofPhotoUrl);
+      }
+      if (idProofPreviewImage) {
+        const optimizedImage = await optimizeImage(idProofPreviewImage);
+        updateData.encryptedIdProofPreview = encrypt(optimizedImage);
       }
 
       if (Object.keys(updateData).length > 0) {
@@ -157,4 +162,35 @@ export const imageWorker = new Worker(
 
 imageWorker.on('failed', (job, err) => {
   logger.error({ jobId: job?.id, err: err.message }, 'Image optimization worker job failed');
+});
+
+// 5. Audit Logging Worker (Transaction Resilience)
+import VisitorLog from '../modules/analytics/visitorLog.model';
+
+export const auditWorker = new Worker(
+  'audit-logging',
+  async (job: Job) => {
+    const { visitorId, tenantId, event, details, actor, actorName } = job.data;
+    logger.info({ visitorId, event, jobId: job.id }, 'Processing asynchronous audit log');
+
+    try {
+      await VisitorLog.create({
+        visitorId,
+        tenantId,
+        event,
+        details,
+        actor,
+        actorName
+      });
+      logger.info({ visitorId, event }, 'Successfully persisted audit log');
+    } catch (error: any) {
+      logger.error({ err: error.message, visitorId }, 'Failed to persist audit log in background');
+      throw error;
+    }
+  },
+  { connection: redisConnection }
+);
+
+auditWorker.on('failed', (job, err) => {
+  logger.error({ jobId: job?.id, err: err.message }, 'Audit worker job failed after retries');
 });

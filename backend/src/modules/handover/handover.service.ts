@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
-import VisitorLog from '../../models/VisitorLog';
-import Handover from '../../models/Handover';
+import VisitorLog from '../analytics/visitorLog.model';
+import Handover from './handover.model';
 
 export class HandoverService {
   static async getShiftStats(gateId: string, shiftStart: string, actorId: string, tenantId: mongoose.Types.ObjectId) {

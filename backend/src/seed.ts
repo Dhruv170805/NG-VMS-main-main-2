@@ -2,9 +2,9 @@ import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import dotenv from 'dotenv';
-import Employee from './models/Employee';
-import Blacklist from './models/Blacklist';
-import Tenant from './models/Tenant';
+import Employee from './modules/employee/employee.model';
+import Blacklist from './modules/blacklist/blacklist.model';
+import Tenant from './modules/system/tenant.model';
 
 dotenv.config();
 

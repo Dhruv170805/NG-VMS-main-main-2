@@ -1,4 +1,4 @@
-import { IVisitor } from '../models/Visitor';
+import { IVisitor } from '../modules/visitor/visitor.model';
 
 export type ActionType = 'GATE_IN' | 'MEET_IN' | 'MEET_OUT' | 'GATE_OUT' | 'APPROVED' | 'REJECTED' | 'DENIED' | 'SENT_FOR_APPROVAL' | 'EXPORT' | 'SECURITY_ALERT';
 

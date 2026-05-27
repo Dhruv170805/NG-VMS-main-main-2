@@ -1,13 +1,15 @@
 import mongoose from 'mongoose';
 import crypto from 'crypto';
-import Visitor, { IVisitor } from '../../models/Visitor';
-import VisitorLog from '../../models/VisitorLog';
-import Employee from '../../models/Employee';
+import Visitor, { IVisitor } from './visitor.model';
+import VisitorLog from '../analytics/visitorLog.model';
+import Employee from '../employee/employee.model';
 import { optimizeImage } from '../../utils/imageOptimizer';
 import { imageQueue } from '../../queues/queueSetup';
-import { encrypt, decrypt } from '../../utils/encryption';
+import { decrypt } from '../../utils/encryption';
 import { notifyHostRegistration, notifyVisitorApproval, notifyHostArrival, notifyVisitorRejection, notifySecurityOverstay } from '../../utils/notificationService';
 import { PolicyEngine, ActionType } from '../../utils/policyEngine';
+import { auditQueue } from '../../queues/queueSetup';
+import { getOrGenerateKeys } from '../../utils/keys';
 
 export class VisitorService {
   static async register(data: any, tenantId: mongoose.Types.ObjectId) {
@@ -59,9 +61,7 @@ export class VisitorService {
     
     // Automatically generate Visitor Signature when visitor submits form
     const signedAt = new Date();
-    const hash = crypto.createHmac('sha256', process.env.LICENSE_SECRET!)
-      .update(`${visitor._id}:${visitor.name}:${signedAt.toISOString()}:REGISTERED`)
-      .digest('hex');
+    const hash = VisitorService.generateSignatureHash(visitor._id.toString(), visitor.name, signedAt, 'REGISTERED');
     
     visitor.visitorSignature = {
       signed: true,
@@ -101,14 +101,18 @@ export class VisitorService {
         error.code === 20;
 
       if (isUnsupported) {
-        // Fallback to non-transactional write
+        // Fallback to non-transactional write with resilient Outbox Pattern via BullMQ
         await visitor.save();
-        await VisitorLog.create([{
+        
+        // Dispatch to reliable background queue (retries 3x automatically)
+        await auditQueue.add('fallback-audit-log', {
           visitorId: visitor._id,
           tenantId,
           event: 'Registered',
           details: 'Awaiting Guard review at Central Hub.'
-        }]);
+        }).catch(err => {
+          console.error('CRITICAL: Failed to enqueue audit log fallback:', err);
+        });
       } else {
         throw error;
       }
@@ -184,9 +188,7 @@ export class VisitorService {
 
       const hostName = visitor.hostName || actor.name;
       const signedAt = new Date();
-      const hash = crypto.createHmac('sha256', process.env.LICENSE_SECRET!)
-        .update(`${id}:${hostName}:${signedAt.toISOString()}:APPROVED`)
-        .digest('hex');
+      const hash = VisitorService.generateSignatureHash(id, hostName, signedAt, 'APPROVED');
       dbUpdate.hostSignature = {
         signed: true,
         signedBy: hostName,
@@ -208,9 +210,7 @@ export class VisitorService {
     if (finalStatus === 'GATE_IN') {
       dbUpdate.checkInTime = new Date();
       const signedAt = new Date();
-      const hash = crypto.createHmac('sha256', process.env.LICENSE_SECRET!)
-        .update(`${id}:${actor.name}:${signedAt.toISOString()}:GATE_IN`)
-        .digest('hex');
+      const hash = VisitorService.generateSignatureHash(id, actor.name, signedAt, 'GATE_IN');
       dbUpdate.guardSignature = {
         signed: true,
         signedBy: actor.name,
@@ -352,13 +352,16 @@ export class VisitorService {
   }
 
   static async updateIdProofPreview(id: string, image: string, tenantId: mongoose.Types.ObjectId) {
-    const optimizedImage = await optimizeImage(image);
-    const encryptedImage = encrypt(optimizedImage);
-    return await Visitor.findOneAndUpdate(
-      { _id: id, tenantId },
-      { encryptedIdProofPreview: encryptedImage },
-      { new: true }
-    );
+    // Offload CPU-heavy image optimization to background worker
+    await imageQueue.add('optimize-visitor-images', {
+      visitorId: id,
+      idProofPreviewImage: image
+    }).catch(err => {
+      console.error('Failed to enqueue id proof preview optimization job:', err);
+    });
+    
+    // Return immediately to avoid blocking the client/event loop
+    return { success: true, message: 'Processing in background' };
   }
 
   static async getIdProofPreview(id: string, tenantId: mongoose.Types.ObjectId) {
@@ -383,9 +386,30 @@ export class VisitorService {
   }
 
   static generateSignatureHash(visitorId: string, actor: string, timestamp: Date, status: string): string {
-    const secret = process.env.LICENSE_SECRET!;
     const payload = `${visitorId}:${actor}:${timestamp.toISOString()}:${status}`;
-    return crypto.createHmac('sha256', secret).update(payload).digest('hex');
+    const keys = getOrGenerateKeys();
+    const sign = crypto.createSign('SHA256');
+    sign.update(payload);
+    sign.end();
+    return sign.sign(keys.privateKey, 'base64');
+  }
+
+  static verifySignatureHash(visitorId: string, actor: string, timestamp: Date, status: string, signatureHash: string): boolean {
+    const payload = `${visitorId}:${actor}:${timestamp.toISOString()}:${status}`;
+    
+    // Backwards compatibility for old HMAC signatures (64 chars hex)
+    if (signatureHash.length === 64) {
+      const secret = process.env.LICENSE_SECRET!;
+      const expectedHash = crypto.createHmac('sha256', secret).update(payload).digest('hex');
+      return signatureHash === expectedHash;
+    }
+
+    // New Asymmetric RSA verification
+    const keys = getOrGenerateKeys();
+    const verify = crypto.createVerify('SHA256');
+    verify.update(payload);
+    verify.end();
+    return verify.verify(keys.publicKey, signatureHash, 'base64');
   }
 
   static async verifyVisitorSignatures(id: string, tenantId: mongoose.Types.ObjectId) {
@@ -401,16 +425,14 @@ export class VisitorService {
 
     if (visitor.visitorSignature && visitor.visitorSignature.signed) {
       const sig = visitor.visitorSignature;
-      const expectedHash = this.generateSignatureHash(visitor._id.toString(), sig.signedBy || '', sig.signedAt!, 'REGISTERED');
-      result.visitor.valid = (sig.signatureHash === expectedHash);
+      result.visitor.valid = this.verifySignatureHash(visitor._id.toString(), sig.signedBy || '', sig.signedAt!, 'REGISTERED', sig.signatureHash!);
       result.visitor.details = sig;
       if (!result.visitor.valid) result.tampered = true;
     }
 
     if (visitor.guardSignature && visitor.guardSignature.signed) {
       const sig = visitor.guardSignature;
-      const expectedHash = this.generateSignatureHash(visitor._id.toString(), sig.signedBy || '', sig.signedAt!, 'GATE_IN');
-      result.guard.valid = (sig.signatureHash === expectedHash);
+      result.guard.valid = this.verifySignatureHash(visitor._id.toString(), sig.signedBy || '', sig.signedAt!, 'GATE_IN', sig.signatureHash!);
       result.guard.details = sig;
       if (!result.guard.valid) result.tampered = true;
     }
@@ -418,9 +440,11 @@ export class VisitorService {
     if (visitor.hostSignature && visitor.hostSignature.signed) {
       const sig = visitor.hostSignature;
       const sigBy = sig.signedBy || '';
-      const hashApproved = this.generateSignatureHash(visitor._id.toString(), sigBy, sig.signedAt!, 'APPROVED');
-      const hashMeetIn = this.generateSignatureHash(visitor._id.toString(), sigBy, sig.signedAt!, 'MEET_IN');
-      result.host.valid = (sig.signatureHash === hashApproved || sig.signatureHash === hashMeetIn);
+      
+      const validApproved = this.verifySignatureHash(visitor._id.toString(), sigBy, sig.signedAt!, 'APPROVED', sig.signatureHash!);
+      const validMeetIn = this.verifySignatureHash(visitor._id.toString(), sigBy, sig.signedAt!, 'MEET_IN', sig.signatureHash!);
+      
+      result.host.valid = validApproved || validMeetIn;
       result.host.details = sig;
       if (!result.host.valid) result.tampered = true;
     }

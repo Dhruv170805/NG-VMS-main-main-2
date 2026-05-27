@@ -1,17 +1,17 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import useSWR from 'swr';
 import { useRouter } from 'next/navigation';
-import { fetcher } from '../utils/fetcher';
-import { API_CONFIG, buildUrl } from '../../app/config';
-import { useTenant } from '../../app/TenantContext';
-import { useAuth } from '../../src/context/AuthContext';
-import { useSocketStore } from '../store';
-import { VisitorListResponseSchema } from '../schemas/visitorSchema';
+import { fetcher } from '@/utils/fetcher';
+import { API_CONFIG, buildUrl } from '@/app/config';
+import { useTenant } from '@/context/TenantContext';
+import { useAuth } from '@/context/AuthContext';
+import { useSocketStore } from '@/store';
+import { VisitorListResponseSchema } from '@/schemas/visitorSchema';
 import { 
   Visitor, Employee, AnalyticsData, BlacklistEntry, 
   ExportConfig, PhotoTarget, SmtpConfig, GuardConfig 
-} from '../../components/admin/types';
-import { generateAdvancedExport, handleQuickExport as quickExportUtil } from '../utils/exportUtils';
+} from '@/components/admin/types';
+import { generateAdvancedExport, handleQuickExport as quickExportUtil } from '@/utils/exportUtils';
 
 export const useAdminDashboard = () => {
   const router = useRouter();

@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import Tenant from '../models/Tenant';
+import Tenant from '../modules/system/tenant.model';
 import mongoose from 'mongoose';
 import { TenantRequest } from '../types/requests';
 import { SecurityManager } from '../utils/securityManager';

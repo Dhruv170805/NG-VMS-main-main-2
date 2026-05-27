@@ -2,7 +2,7 @@ import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
-import Employee from '../../models/Employee';
+import Employee from '../employee/employee.model';
 import { sendNotification } from '../../utils/notificationService';
 import redisConnection from '../../config/redis';
 

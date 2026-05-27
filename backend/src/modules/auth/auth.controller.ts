@@ -1,5 +1,5 @@
 import { Response, Request, RequestHandler } from 'express';
-import Employee from '../../models/Employee';
+import Employee from '../employee/employee.model';
 import { TenantRequest, AuthRequest } from '../../types/requests';
 import { AuthService } from './auth.service';
 import jwt from 'jsonwebtoken';

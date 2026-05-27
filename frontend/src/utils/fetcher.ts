@@ -1,4 +1,4 @@
-import { API_CONFIG, buildUrl } from '../../app/config';
+import { API_CONFIG, buildUrl } from '@/app/config';
 
 // Global SWR fetcher configured to always include tenantId and credentials
 export const fetcher = async (url: string) => {

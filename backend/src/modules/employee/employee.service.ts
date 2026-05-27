@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
-import Employee from '../../models/Employee';
-import VisitorLog from '../../models/VisitorLog';
+import Employee from './employee.model';
+import VisitorLog from '../analytics/visitorLog.model';
 import { CacheService } from '../../services/cache.service';
 
 export class EmployeeService {

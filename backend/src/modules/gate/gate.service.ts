@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
-import Visitor from '../../models/Visitor';
-import Blacklist from '../../models/Blacklist';
-import VisitorLog from '../../models/VisitorLog';
+import Visitor from '../visitor/visitor.model';
+import Blacklist from '../blacklist/blacklist.model';
+import VisitorLog from '../analytics/visitorLog.model';
 import { PolicyEngine } from '../../utils/policyEngine';
 
 export class GateService {

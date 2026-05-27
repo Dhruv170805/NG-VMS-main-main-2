@@ -1,8 +1,8 @@
 import * as XLSX from 'xlsx-js-style';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { Visitor, ExportConfig } from '../../components/admin/types';
-import { API_CONFIG } from '../../app/config';
+import { Visitor, ExportConfig } from '@/components/admin/types';
+import { API_CONFIG } from '@/app/config';
 
 export const handleQuickExport = (visitors: Visitor[]) => {
   if (visitors.length === 0) {

@@ -1,8 +1,8 @@
 import { create } from 'zustand';
 import { useShallow } from 'zustand/react/shallow';
-import { createSocketSlice, SocketSlice } from './slices/socketSlice';
-import { createHostSlice, HostSlice } from './slices/hostSlice';
-import { createVisitorSlice, VisitorSlice } from './slices/visitorSlice';
+import { createSocketSlice, SocketSlice } from '@/store/slices/socketSlice';
+import { createHostSlice, HostSlice } from '@/store/slices/hostSlice';
+import { createVisitorSlice, VisitorSlice } from '@/store/slices/visitorSlice';
 
 export type AppState = SocketSlice & HostSlice & VisitorSlice;
 
@@ -53,4 +53,4 @@ export const useVisitorStore = () =>
     setCurrentVisitor: state.setCurrentVisitor,
   })));
 
-export * from './types';
+export * from '@/store/types';

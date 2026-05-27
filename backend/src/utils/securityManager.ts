@@ -4,7 +4,7 @@ import crypto from 'node:crypto';
 import os from 'os';
 import CryptoJS from 'crypto-js';
 import * as si from 'systeminformation';
-import Tenant from '../models/Tenant';
+import Tenant from '../modules/system/tenant.model';
 import mongoose from 'mongoose';
 
 /**

@@ -1,8 +1,8 @@
 "use client";
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { API_CONFIG } from '../../app/config';
-import { useTenant } from '../../app/TenantContext';
+import { API_CONFIG } from '@/app/config';
+import { useTenant } from '@/context/TenantContext';
 
 interface User {
   _id?: string;

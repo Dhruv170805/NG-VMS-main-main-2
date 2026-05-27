@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
-import { Visitor } from '../../components/guard/types';
-import { useVisitorQueries } from './useVisitorQueries';
+import { Visitor } from '@/components/guard/types';
+import { useVisitorQueries } from '@/hooks/useVisitorQueries';
 
 export const useGuardScanner = () => {
   const [scanStatus, setScanStatus] = useState<'idle' | 'scanning' | 'verifying' | 'success' | 'error'>('idle');

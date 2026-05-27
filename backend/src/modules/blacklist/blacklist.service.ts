@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import Blacklist from '../../models/Blacklist';
+import Blacklist from './blacklist.model';
 import { CacheService } from '../../services/cache.service';
 
 export class BlacklistService {

@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, MutableRefObject } from 'react';
-import { API_CONFIG } from '../../app/config';
-import { useTenant } from '../../app/TenantContext';
+import { API_CONFIG } from '@/app/config';
+import { useTenant } from '@/context/TenantContext';
 
 export const useGuardUI = (
   router: any,

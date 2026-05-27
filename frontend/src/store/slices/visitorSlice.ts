@@ -1,7 +1,7 @@
 import { StateCreator } from 'zustand';
-import { API_CONFIG, buildUrl } from '../../../app/config';
-import { withRetry } from '../../utils/retryQueue';
-import { Visitor, getTenantId } from '../types';
+import { API_CONFIG, buildUrl } from '@/app/config';
+import { withRetry } from '@/utils/retryQueue';
+import { Visitor, getTenantId } from '@/store/types';
 
 export interface VisitorSlice {
   globalVisitors: Visitor[];

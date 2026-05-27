@@ -1,6 +1,6 @@
-import Tenant from '../../models/Tenant';
-import Employee from '../../models/Employee';
-import Setting from '../../models/Setting';
+import Tenant from '../system/tenant.model';
+import Employee from '../employee/employee.model';
+import Setting from '../system/setting.model';
 import bcryptjs from 'bcryptjs';
 import { SecurityManager } from '../../utils/securityManager';
 

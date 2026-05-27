@@ -150,6 +150,19 @@ const authLimiter = rateLimit({
   keyGenerator: tenantKeyGenerator,
 });
 
+const lookupLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 15,
+  validate: { keyGeneratorIpFallback: false },
+  skip: () => process.env.NODE_ENV === 'test' || process.env.DISABLE_RATE_LIMITS === 'true',
+  message: { error: 'Too many lookup attempts, please try again later' },
+  store: new RedisStore({
+    // @ts-expect-error - ioredis sendCommand type is compatible
+    sendCommand: (...args: string[]) => redisConnection.call(args[0], ...args.slice(1)),
+  }),
+  keyGenerator: tenantKeyGenerator,
+});
+
 const io = new Server(server, {
   cors: {
     origin: (origin, callback) => {
@@ -222,6 +235,7 @@ app.use('/api/v1', limiter);
 app.use('/api', limiter);
 app.use('/api/v1/auth/login', authLimiter);
 app.use('/api/auth/login', authLimiter);
+app.use('/api/v1/visitors/lookup', lookupLimiter);
 
 // GraphQL Integration
 const apolloServer = new ApolloServer({

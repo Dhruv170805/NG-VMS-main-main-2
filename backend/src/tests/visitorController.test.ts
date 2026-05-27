@@ -3,10 +3,10 @@ import request from 'supertest';
 import mongoose from 'mongoose';
 import express from 'express';
 import crypto from 'crypto';
-import Visitor from '../models/Visitor';
-import VisitorLog from '../models/VisitorLog';
+import Visitor from '../modules/visitor/visitor.model';
+import VisitorLog from '../modules/analytics/visitorLog.model';
 import { registerVisitor, updateVisitorStatus } from '../modules/visitor/visitor.controller';
-import Tenant from '../models/Tenant';
+import Tenant from '../modules/system/tenant.model';
 import { tenantMiddleware } from '../middleware/tenantMiddleware';
 
 // Setup Mock App for Controller testing

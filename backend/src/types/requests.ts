@@ -1,6 +1,6 @@
 import { Request } from 'express';
 import mongoose from 'mongoose';
-import { ITenant } from '../models/Tenant';
+import { ITenant } from '../modules/system/tenant.model';
 
 /**
  * Request augmented with Tenant information by TenantMiddleware

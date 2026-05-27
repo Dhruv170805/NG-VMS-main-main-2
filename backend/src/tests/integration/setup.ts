@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
-import Tenant from '../../models/Tenant';
-import Employee from '../../models/Employee';
+import Tenant from '../../modules/system/tenant.model';
+import Employee from '../../modules/employee/employee.model';
 import { AuthService } from '../../modules/auth/auth.service';
 
 const TEST_MONGO_URI = process.env.TEST_MONGODB_URI || 'mongodb://127.0.0.1:27017/ng-vms-integration-tests?directConnection=true&retryWrites=false';

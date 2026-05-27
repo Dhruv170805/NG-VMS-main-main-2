@@ -1,6 +1,6 @@
 import { StateCreator } from 'zustand';
 import { io, Socket } from 'socket.io-client';
-import { API_CONFIG } from '../../../app/config';
+import { API_CONFIG } from '@/app/config';
 
 export interface SocketSlice {
   socket: Socket | null;

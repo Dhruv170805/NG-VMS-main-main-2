@@ -1,9 +1,9 @@
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
-import Tenant from './models/Tenant';
-import Employee from './models/Employee';
-import Visitor from './models/Visitor';
-import Setting from './models/Setting';
+import Tenant from './modules/system/tenant.model';
+import Employee from './modules/employee/employee.model';
+import Visitor from './modules/visitor/visitor.model';
+import Setting from './modules/system/setting.model';
 import { SecurityManager } from './utils/securityManager';
 import { sendNotification } from './utils/notificationService';
 

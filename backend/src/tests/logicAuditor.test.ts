@@ -3,11 +3,11 @@ import request from 'supertest';
 import mongoose from 'mongoose';
 import crypto from 'crypto';
 import express from 'express';
-import Visitor from '../models/Visitor';
-import Blacklist from '../models/Blacklist';
-import VisitorLog from '../models/VisitorLog';
+import Visitor from '../modules/visitor/visitor.model';
+import Blacklist from '../modules/blacklist/blacklist.model';
+import VisitorLog from '../modules/analytics/visitorLog.model';
 import { gateCheckIn } from '../modules/gate/gate.controller';
-import Tenant from '../models/Tenant';
+import Tenant from '../modules/system/tenant.model';
 import { tenantMiddleware } from '../middleware/tenantMiddleware';
 
 // Setup Mock App for Controller testing

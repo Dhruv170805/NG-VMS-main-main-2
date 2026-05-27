@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { API_CONFIG, buildUrl } from '../../app/config';
-import { Visitor } from '../../components/guard/types';
-import { useTenant } from '../../app/TenantContext';
+import { API_CONFIG, buildUrl } from '@/app/config';
+import { Visitor } from '@/components/guard/types';
+import { useTenant } from '@/context/TenantContext';
 
 export const useGuardAadhaar = (
   setVisitor: React.Dispatch<React.SetStateAction<Visitor | null>>,

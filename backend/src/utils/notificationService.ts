@@ -1,5 +1,5 @@
-import Setting from '../models/Setting';
-import Employee from '../models/Employee';
+import Setting from '../modules/system/setting.model';
+import Employee from '../modules/employee/employee.model';
 import { Server } from 'socket.io';
 import nodemailer from 'nodemailer';
 import { SecurityManager } from './securityManager';
