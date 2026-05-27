@@ -76,3 +76,8 @@ AGENT_NOTES.md
 *AGENT_NOTES.md
 *agent_notes.md
 
+# PPT Generation
+scripts/generate_ppt.py
+scripts/generate_client_ppt.py
+*.pptx
+.venv/
