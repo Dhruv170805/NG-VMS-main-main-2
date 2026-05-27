@@ -89,7 +89,7 @@ const corsOptions: cors.CorsOptions = {
         
         // Dynamic Origin Detection: Allow if it matches the base domain or is a local hostname
         const isIp = /^\d{1,3}(?:\.\d{1,3}){3}$/.test(hostname) || hostname.includes(':') || hostname === 'localhost' || hostname === '127.0.0.1';
-        const isLocal = hostname.endsWith('.local') || hostname.endsWith('.lan') || hostname.endsWith('.home') || hostname.endsWith('.patel');
+        const isLocal = hostname.endsWith('.local') || hostname.endsWith('.lan') || hostname.endsWith('.home') || hostname.endsWith('.patel') || hostname.endsWith('.internal');
         
         if (isIp || isLocal || hostname === baseDomain || hostname.endsWith('.' + baseDomain)) {
           callback(null, true);
@@ -156,6 +156,13 @@ const io = new Server(server, {
       }
       try {
         const hostname = new URL(origin).hostname;
+        const isIp = /^\d{1,3}(?:\.\d{1,3}){3}$/.test(hostname) || hostname.includes(':') || hostname === 'localhost' || hostname === '127.0.0.1';
+        const isDynamicLocal = hostname.endsWith('.local') || hostname.endsWith('.lan') || hostname.endsWith('.home') || hostname.endsWith('.internal');
+        
+        if (isIp || isDynamicLocal) {
+          callback(null, true);
+          return;
+        }
         
         // Allowed domains check
         if (hostname === baseDomain || hostname.endsWith('.' + baseDomain)) {
@@ -195,19 +202,14 @@ setNotificationIO(io);
 app.use(cors(corsOptions));
 app.use(cookieParser());
 
-// Global body parsing with 100kb limit, skipping for specific high-payload routes
+// Global body parsing with 100kb limit, but 10mb limit for high-payload routes
 app.use((req, res, next) => {
-  if (req.path.includes('/visitors/register') || req.path.includes('/id-preview')) {
-    return next();
-  }
-  express.json({ limit: '100kb' })(req, res, next);
-});
-
-app.use((req, res, next) => {
-  if (req.path.includes('/visitors/register') || req.path.includes('/id-preview')) {
-    return next();
-  }
-  express.urlencoded({ limit: '100kb', extended: true })(req, res, next);
+  const isHighPayload = req.path.includes('/visitors/register') || req.path.includes('/id-preview');
+  const limit = isHighPayload ? '10mb' : '100kb';
+  express.json({ limit })(req, res, (err) => {
+    if (err) return next(err);
+    express.urlencoded({ limit, extended: true })(req, res, next);
+  });
 });
 
 app.use(requestLogger); // Structured Request Logging
@@ -279,7 +281,7 @@ mongoose
           if (key && key.trim()) {
             const filename = path.basename(process.env.LICENSE_KEY_PATH);
             const match = filename.match(/^([a-zA-Z0-9_-]+)&([a-zA-Z0-9_-]+)_NGS\.lic$/i);
-            const companyCode = match ? match[1] : 'demo';
+            const companyCode = match ? match[1] : 'default';
             foundLicenses.push({ path: process.env.LICENSE_KEY_PATH, filename, key: key.trim(), companyCode });
           }
         } catch (err) {}
@@ -298,7 +300,7 @@ mongoose
                 const key = await fs.promises.readFile(fullPath, 'utf8');
                 if (key && key.trim()) {
                   const match = file.match(/^([a-zA-Z0-9_-]+)&([a-zA-Z0-9_-]+)_NGS\.lic$/i);
-                  const companyCode = match ? match[1] : 'demo';
+                  const companyCode = match ? match[1] : 'default';
                   foundLicenses.push({ path: fullPath, filename: file, key: key.trim(), companyCode });
                 }
               } catch (err) {}
@@ -318,7 +320,7 @@ mongoose
         }
 
         const data = validation.data!;
-        const companyCode = (lic.companyCode || data.companyCode || data.company || 'demo').toLowerCase().replace(/[^a-z0-9_-]/g, '');
+        const companyCode = (lic.companyCode || data.companyCode || data.company || 'default').toLowerCase().replace(/[^a-z0-9_-]/g, '');
 
         const status = await BootstrapService.checkStatus();
         if (status.bootstrapRequired) {

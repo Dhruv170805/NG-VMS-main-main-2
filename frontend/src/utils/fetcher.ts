@@ -3,7 +3,7 @@ import { API_CONFIG, buildUrl } from '../../app/config';
 // Global SWR fetcher configured to always include tenantId and credentials
 export const fetcher = async (url: string) => {
   const getTenantId = () => {
-    if (typeof window === 'undefined') return 'demo';
+    if (typeof window === 'undefined') return '';
     const urlParams = new URLSearchParams(window.location.search);
     const queryTenant = urlParams.get('tenant') || urlParams.get('t');
     if (queryTenant) return queryTenant;
@@ -12,13 +12,13 @@ export const fetcher = async (url: string) => {
     if (storedTenant) return storedTenant;
     
     const hostname = window.location.hostname;
-    if (hostname.includes('.onrender.com') || hostname.includes('.vercel.app')) return 'demo';
-    if (/^\d{1,3}(?:\.\d{1,3}){3}$/.test(hostname) || hostname.includes(':')) return 'demo';
+    if (hostname.includes('.onrender.com') || hostname.includes('.vercel.app')) return '';
+    if (/^\d{1,3}(?:\.\d{1,3}){3}$/.test(hostname) || hostname.includes(':') || hostname === 'localhost' || hostname.endsWith('.local') || hostname.endsWith('.lan') || hostname.endsWith('.internal')) return '';
     
     const parts = hostname.split('.');
     if (parts.length > 2) return parts[0];
     
-    return 'demo';
+    return '';
   };
 
   const headers: any = {

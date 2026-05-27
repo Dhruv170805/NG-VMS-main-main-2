@@ -22,7 +22,7 @@ export const safeLocalStorage = {
 };
 
 export const getTenantId = () => {
-  if (typeof window === 'undefined') return 'demo';
+  if (typeof window === 'undefined') return '';
 
   // 1. Check Query Parameters (highest priority for first-time login)
   const urlParams = new URLSearchParams(window.location.search);
@@ -44,5 +44,5 @@ export const getTenantId = () => {
     return parts[0];
   }
   
-  return 'demo';
+  return '';
 };

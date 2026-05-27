@@ -20,7 +20,7 @@ const httpLink = createHttpLink({
 });
 
 const authLink = setContext((_, { headers }) => {
-  const tenantId = typeof window !== 'undefined' ? (localStorage.getItem('vms_tenant_id') || 'demo') : 'demo';
+  const tenantId = typeof window !== 'undefined' ? (localStorage.getItem('vms_tenant_id') || '') : '';
   
   // return the headers to the context so httpLink can read them
   return {

@@ -23,9 +23,15 @@ export const tenantMiddleware = async (req: Request, res: Response, next: NextFu
       if (subdomain) {
         tenant = await Tenant.findOne({ subdomain });
       }
-      if (!tenant && (!subdomain || subdomain === 'demo' || subdomain === 'localhost' || subdomain === 'default')) {
-        tenant = await Tenant.findOne();
+      
+      // Auto-bind for exempt routes if no explicit subdomain is found, but ONLY if there is exactly 1 tenant
+      if (!tenant) {
+        const tenantCount = await Tenant.countDocuments();
+        if (tenantCount === 1) {
+          tenant = await Tenant.findOne();
+        }
       }
+
       if (tenant) {
         const tenantReq = req as TenantRequest;
         tenantReq.tenant = tenant;
@@ -40,15 +46,17 @@ export const tenantMiddleware = async (req: Request, res: Response, next: NextFu
   let subdomain = req.headers['x-tenant-id'] as string;
 
   if (!subdomain) {
-    // Fallback: extract subdomain from Host header to handle cases where proxy strips custom headers
-    const host = req.headers.host || '';
-    const hostname = host.split(':')[0];
-    const isIp = /^\d{1,3}(?:\.\d{1,3}){3}$/.test(hostname) || hostname.includes(':') || hostname === 'localhost' || hostname === '127.0.0.1';
+    // Fallback: extract subdomain from Host header to handle IIS / Proxies
+    // Check x-forwarded-host or x-original-host (IIS ARR) first, then host
+    const forwardedHost = req.headers['x-forwarded-host'] || req.headers['x-original-host'] || req.headers.host || '';
+    const hostStr = Array.isArray(forwardedHost) ? forwardedHost[0] : forwardedHost;
+    const hostname = hostStr.split(':')[0];
     
-    // Only apply the IP/localhost fallback outside of the test environment
-    if (process.env.NODE_ENV !== 'test' && isIp) {
-      subdomain = 'demo';
-    } else if (!isIp) {
+    // Check if accessed via IP or local network dynamic names
+    const isIp = /^\d{1,3}(?:\.\d{1,3}){3}$/.test(hostname) || hostname.includes(':') || hostname === 'localhost' || hostname === '127.0.0.1';
+    const isDynamicLocal = hostname.endsWith('.local') || hostname.endsWith('.lan') || hostname.endsWith('.internal');
+    
+    if (!isIp && !isDynamicLocal) {
       const parts = hostname.split('.');
       if (parts.length >= 2) {
         // If first part is 'www', use the second part as tenant
@@ -57,8 +65,6 @@ export const tenantMiddleware = async (req: Request, res: Response, next: NextFu
         } else {
           subdomain = parts[0];
         }
-      } else {
-        subdomain = 'demo';
       }
     }
   }
@@ -68,14 +74,21 @@ export const tenantMiddleware = async (req: Request, res: Response, next: NextFu
   }
 
   try {
-    let tenant = await Tenant.findOne({ subdomain });
-    
-    // God-Level Fallback: If tenant not found by subdomain, and we are in relaxed/local mode, 
-    // fall back to the first available tenant. This handles single-tenant IIS/LAN installs perfectly.
+    let tenant = null;
+    if (subdomain) {
+      tenant = await Tenant.findOne({ subdomain });
+    }
+
+    // Single-Tenant Auto-Bind & Relaxed Mode
     const isRelaxedMode = subdomain === 'demo' || subdomain === 'localhost' || subdomain === 'default' || process.env.ALLOW_UNSIGNED_LICENSE === 'true';
     
-    if (!tenant && isRelaxedMode) {
-      tenant = await Tenant.findOne();
+    // If we have no explicit subdomain found (IP or localhost without query param),
+    // and there is EXACTLY ONE tenant in the database (or we are in relaxed mode), automatically bind to it.
+    if (!tenant && (!subdomain || isRelaxedMode)) {
+      const tenantCount = await Tenant.countDocuments();
+      if (tenantCount === 1 || isRelaxedMode) {
+        tenant = await Tenant.findOne();
+      }
     }
 
     if (!tenant) {

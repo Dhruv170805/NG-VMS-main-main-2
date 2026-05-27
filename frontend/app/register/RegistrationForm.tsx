@@ -12,8 +12,6 @@ import {
   CheckCircle, Shield, ArrowRight, Zap, Heart
 } from 'lucide-react';
 
-import * as faceapi from '@vladmandic/face-api';
-
 const DEFAULT_PURPOSES = ['Meeting', 'Internship', 'Training', 'Personal', 'Other'];
 
 const VisitorRegistration: React.FC = () => {
@@ -72,6 +70,7 @@ const VisitorRegistration: React.FC = () => {
   useEffect(() => {
     const loadModels = async () => {
       try {
+        const faceapi = await import('@vladmandic/face-api');
         const modelUrl = window.location.origin + '/models';
         await Promise.all([
           faceapi.nets.tinyFaceDetector.loadFromUri(modelUrl),
@@ -173,6 +172,7 @@ const VisitorRegistration: React.FC = () => {
       if (!isDetecting && modelsLoaded && webcamRef.current?.video?.readyState === 4) {
         isDetecting = true;
         try {
+          const faceapi = await import('@vladmandic/face-api');
           const detection = await faceapi.detectSingleFace(
             webcamRef.current.video,
             new faceapi.TinyFaceDetectorOptions()

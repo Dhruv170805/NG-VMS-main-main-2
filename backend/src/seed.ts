@@ -22,7 +22,7 @@ const seedUsers = async () => {
     // Create Default Tenant
     // License features: Email: true, SMS: false, Aadhaar: true
     const license = Buffer.from(JSON.stringify({
-      companyCode: 'demo',
+      companyCode: 'default',
       companyName: 'VMS Enterprise',
       features: { email: true, sms: false, aadhaar: true },
       expiresAt: '2027-12-31',
@@ -31,9 +31,9 @@ const seedUsers = async () => {
 
     const defaultTenant = await Tenant.create({
       name: 'VMS Enterprise',
-      subdomain: 'demo',
+      subdomain: 'default',
       licenseKey: license,
-      logoUrl: 'https://vms-demo.com/logo.png'
+      logoUrl: 'https://vms-default.com/logo.png'
     });
 
     console.log(`Tenant created: ${defaultTenant.name} (${defaultTenant.subdomain})`);

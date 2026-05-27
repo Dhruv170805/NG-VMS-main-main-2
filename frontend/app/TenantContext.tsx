@@ -35,7 +35,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [error, setError] = useState<string | null>(null);
 
   const getSubdomain = React.useCallback(() => {
-    if (typeof window === 'undefined') return 'demo';
+    if (typeof window === 'undefined') return '';
     
     // --- IIS/Local Network Dynamic Tenant Resolution ---
     // In local private network deployments (like IIS), multiple PCs access the app via IP addresses
@@ -56,14 +56,14 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     const hostname = window.location.hostname;
 
-    // Ignore hosting provider domains and use demo tenant
+    // Ignore hosting provider domains and use empty string (triggering backend auto-bind)
     if (hostname.includes('.onrender.com') || hostname.includes('.vercel.app')) {
-      return 'demo';
+      return '';
     }
 
-    // Accessing the site via an IP address should use the default tenant
-    if (isIpAddress(hostname)) {
-      return 'demo';
+    // Accessing the site via an IP address should use empty string (triggering backend auto-bind)
+    if (isIpAddress(hostname) || hostname === 'localhost' || hostname.endsWith('.local') || hostname.endsWith('.lan') || hostname.endsWith('.internal')) {
+      return '';
     }
 
     const parts = hostname.split('.');
@@ -75,8 +75,8 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return parts[0];
     }
 
-    // Default to 'demo' for dev/localhost
-    return 'demo';
+    // Default to empty string for dev/localhost (triggering backend auto-bind)
+    return '';
   }, []);
 
   const fetchTenantConfig = React.useCallback(async () => {
