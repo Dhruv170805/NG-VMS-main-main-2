@@ -9,7 +9,7 @@ Write-Host "   NG-VMS ENTERPRISE WINDOWS INSTALLER       " -ForegroundColor Cyan
 Write-Host "=================================================" -ForegroundColor Cyan
 
 # --- 1. SYSTEM VALIDATION ---
-Write-Host "[1/6] Validating Windows System Requirements..." -ForegroundColor White
+Write-Host "[1/7] Validating Windows System Requirements..." -ForegroundColor White
 
 # Check Docker
 if (!(Get-Command docker -ErrorAction SilentlyContinue)) {
@@ -48,7 +48,7 @@ foreach ($port in $ports) {
 Write-Host "[OK] Port Check Passed." -ForegroundColor Green
 
 # --- 2. CONFIGURATION & SECRETS ---
-Write-Host "[2/6] Generating Secrets and Configuration..." -ForegroundColor White
+Write-Host "[2/7] Generating Secrets and Configuration..." -ForegroundColor White
 
 if (!(Test-Path .env)) {
     if (Test-Path .env.example) {
@@ -98,7 +98,7 @@ if (!(Test-Path "data/mongo/mongo.key")) {
 }
 
 # --- 3. LICENSE CHECK ---
-Write-Host "[3/6] Verifying License..." -ForegroundColor White
+Write-Host "[3/7] Verifying License..." -ForegroundColor White
 $licFile = ""
 if (Test-Path "PE_01&VMS_NGS.lic") {
     $licFile = "PE_01&VMS_NGS.lic"
@@ -121,8 +121,23 @@ if ($licFile -ne "") {
     New-Item -ItemType File -Path "license_NGS.lic" -Force | Out-Null
 }
 
-# --- 4. DEPLOYMENT ---
-Write-Host "[4/6] Launching Cinematic Stack..." -ForegroundColor White
+# --- 4. FIREWALL CONFIGURATION ---
+Write-Host "[4/7] Configuring Windows Firewall..." -ForegroundColor White
+try {
+    # Remove existing rules to avoid duplicates
+    Remove-NetFirewallRule -DisplayName "NG-VMS HTTP" -ErrorAction SilentlyContinue
+    Remove-NetFirewallRule -DisplayName "NG-VMS HTTPS" -ErrorAction SilentlyContinue
+    
+    # Add new inbound rules
+    New-NetFirewallRule -DisplayName "NG-VMS HTTP" -Direction Inbound -LocalPort 80 -Protocol TCP -Action Allow -ErrorAction SilentlyContinue | Out-Null
+    New-NetFirewallRule -DisplayName "NG-VMS HTTPS" -Direction Inbound -LocalPort 443 -Protocol TCP -Action Allow -ErrorAction SilentlyContinue | Out-Null
+    Write-Host "[OK] Firewall rules added for ports 80 and 443." -ForegroundColor Green
+} catch {
+    Write-Host "[WARN] Could not configure Windows Firewall. You may need to manually allow ports 80/443." -ForegroundColor Yellow
+}
+
+# --- 5. DEPLOYMENT ---
+Write-Host "[5/7] Launching Cinematic Stack..." -ForegroundColor White
 
 if (Test-Path ngvms-images.tar) {
     Write-Host "[INFO] Found pre-built images. Loading them into Docker..." -ForegroundColor Gray
@@ -131,8 +146,8 @@ if (Test-Path ngvms-images.tar) {
 
 docker compose up -d
 
-# --- 5. HEALTH CHECKS ---
-Write-Host "[5/6] Waiting for Services to stabilize (20s)..." -ForegroundColor White
+# --- 6. HEALTH CHECKS ---
+Write-Host "[6/7] Waiting for Services to stabilize (20s)..." -ForegroundColor White
 Start-Sleep -Seconds 20
 
 $status = docker compose ps --format json
@@ -143,8 +158,8 @@ if ($status -match "running" -or $status -match "Up") {
     exit 1
 }
 
-# --- 6. DONE ---
-Write-Host "[6/6] Finalizing..." -ForegroundColor White
+# --- 7. DONE ---
+Write-Host "[7/7] Finalizing..." -ForegroundColor White
 
 $serverIP = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.InterfaceAlias -notlike '*Loopback*' -and $_.IPAddress -ne '127.0.0.1' } | Select-Object -First 1).IPAddress
 if (-not $serverIP) { $serverIP = "localhost" }

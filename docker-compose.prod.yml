@@ -113,6 +113,8 @@ services:
       LICENSE_SECRET: ${LICENSE_SECRET:?LICENSE_SECRET required}
       SKIP_HW_LOCK: ${SKIP_HW_LOCK:-false}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
+      EXTRA_ALLOWED_ORIGINS: ${EXTRA_ALLOWED_ORIGINS:-}
+      SERVER_HOST: ${DOMAIN_NAME:-localhost}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:?ENCRYPTION_KEY required}  # BUG FIX: was hardcoded in encryption.ts
     volumes:
       - .:/app/shared:ro

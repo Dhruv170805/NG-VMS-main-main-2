@@ -94,7 +94,7 @@ const corsOptions: cors.CorsOptions = {
         const isIp = /^\d{1,3}(?:\.\d{1,3}){3}$/.test(hostname) || hostname.includes(':') || hostname === 'localhost' || hostname === '127.0.0.1';
         const isLocal = hostname.endsWith('.local') || hostname.endsWith('.lan') || hostname.endsWith('.home') || hostname.endsWith('.patel') || hostname.endsWith('.internal');
         
-        if (isIp || isLocal || hostname === baseDomain || hostname.endsWith('.' + baseDomain)) {
+        if (isIp || isLocal || hostname === baseDomain || hostname.endsWith('.' + baseDomain) || process.env.DEPLYOMENT_MODE === 'ON_PREM') {
           callback(null, true);
           return;
         }
@@ -175,7 +175,7 @@ const io = new Server(server, {
         const isIp = /^\d{1,3}(?:\.\d{1,3}){3}$/.test(hostname) || hostname.includes(':') || hostname === 'localhost' || hostname === '127.0.0.1';
         const isDynamicLocal = hostname.endsWith('.local') || hostname.endsWith('.lan') || hostname.endsWith('.home') || hostname.endsWith('.internal');
         
-        if (isIp || isDynamicLocal) {
+        if (isIp || isDynamicLocal || process.env.DEPLYOMENT_MODE === 'ON_PREM') {
           callback(null, true);
           return;
         }
