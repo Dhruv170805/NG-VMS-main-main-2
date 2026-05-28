@@ -1,103 +1,116 @@
 #!/bin/bash
+# ==============================================================================
+#                 NG-VMS ENTERPRISE DISASTER RECOVERY RESTORE UTILITY
+# ==============================================================================
+# Goal: Reconstruct database and asset storage from any directory or tar.gz archive.
+# Target: Production systems. WARNING: Destructive overwrite sequence.
+# ==============================================================================
 
-# NG-VMS Enterprise Restore Utility
-# Safely restores MongoDB and MinIO from a specified backup timestamp folder or tar.gz archive.
+set -euo pipefail
 
-set -e
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
 
-# Load environment variables
+log() { echo -e "${GREEN}[INFO]${NC} $*"; }
+warn() { echo -e "${YELLOW}[WARN]${NC} $*"; }
+err() { echo -e "${RED}[ERROR]${NC} $*"; exit 1; }
+
+# Load environmental variables
 if [ -f .env ]; then
     source .env
+else
+    err "Configuration .env file missing in current folder."
 fi
 
-if [ -z "$1" ]; then
-    echo "Usage: ./scripts/restore.sh <backup_path>"
+if [ -z "${1:-}" ]; then
+    echo -e "${RED}Usage:${NC} ./restore.sh <backup_path>"
     echo "Examples:"
-    echo "  ./scripts/restore.sh ./backups/2026-05-18_12-00-00"
-    echo "  ./scripts/restore.sh ./backups/2026-05-18_12-00-00.tar.gz"
+    echo "  ./restore.sh ./backups/ngvms_backup_2026-05-18_12-00-00.tar.gz"
+    echo "  ./restore.sh ./backups/ngvms_backup_2026-05-18_12-00-00"
     exit 1
 fi
 
 TARGET_PATH=$1
 TEMP_DIR=""
 
-# Check if target is a tar.gz file
+# Check if target is a tar.gz file and exists
 if [[ "$TARGET_PATH" == *.tar.gz ]]; then
     if [ ! -f "$TARGET_PATH" ]; then
-        echo "[ERROR] Backup archive file $TARGET_PATH not found."
-        exit 1
+        err "Backup archive file $TARGET_PATH not found."
     fi
-    echo "[INFO] Detected backup archive. Extracting to temporary directory..."
+    log "Backup archive detected. Provisioning safe extraction space..."
     TEMP_DIR=$(mktemp -d -p "$(pwd)/backups" -t "restore_tmp_XXXXXXXX")
     tar -xzf "$TARGET_PATH" -C "$TEMP_DIR"
-    # Find the actual extracted folder inside the temp dir (basename match)
+    
+    # Find extracted folder nesting
     BACKUP_DIR=$(find "$TEMP_DIR" -mindepth 1 -maxdepth 1 -type d | head -n 1)
     if [ -z "$BACKUP_DIR" ]; then
-        # Archive was created without parent folder nesting
         BACKUP_DIR="$TEMP_DIR"
     fi
 else
     BACKUP_DIR=$TARGET_PATH
     if [ ! -d "$BACKUP_DIR" ]; then
-        echo "[ERROR] Backup directory $BACKUP_DIR not found."
-        exit 1
+        err "Backup directory $BACKUP_DIR not found."
     fi
 fi
 
-# Setup cleanup on exit
+# Cleanup trigger on script cancellation or exit
 cleanup() {
     if [ -n "$TEMP_DIR" ] && [ -d "$TEMP_DIR" ]; then
-        echo "[INFO] Cleaning up temporary files..."
+        log "Cleaning up extraction workspaces..."
         rm -rf "$TEMP_DIR"
     fi
 }
 trap cleanup EXIT
 
-echo "================================================="
-echo "   ⚠️ NG-VMS ENTERPRISE RESTORE UTILITY ⚠️      "
-echo "================================================="
-echo "Target Backup Source: $TARGET_PATH"
-echo "WARNING: This will overwrite current production data."
-echo -n "Type 'CONFIRM' to proceed: "
+echo -e "${RED}"
+echo "======================================================================"
+echo "          ⚠️  NG-VMS ENTERPRISE PRODUCTION RESTORE UTILITY ⚠️          "
+echo "======================================================================"
+echo -e "${NC}"
+echo "  Target Source: $TARGET_PATH"
+echo "  WARNING: This sequence will permanently drop and overwrite all"
+echo "           active database collections and storage buckets."
+echo ""
+echo -n "  To proceed, type 'CONFIRM': "
 read -r CONFIRMATION
 
 if [ "$CONFIRMATION" != "CONFIRM" ]; then
-    echo "Restore cancelled."
+    log "Operation aborted. Exiting safely."
     exit 0
 fi
 
-# 1. Mongo Restore
+# ── 1. DB RECONSTRUCTION ──────────────────────────────────────────────────────
 if [ -f "$BACKUP_DIR/mongodb_ngvms.gz" ]; then
-    echo "[INFO] Restoring MongoDB data..."
-    # Drop existing db before restore to avoid merge conflicts
+    log "Initiating database reconstruction (mongorestore)..."
     docker exec -i ngvms_mongo mongorestore \
-      --username "${MONGO_ROOT_USER:-ngvms_root}" \
-      --password "${MONGO_ROOT_PASSWORD:?MONGO_ROOT_PASSWORD required}" \
-      --authenticationDatabase admin \
-      --drop --gzip --archive < "$BACKUP_DIR/mongodb_ngvms.gz"
-    echo "[OK] MongoDB restored."
+        --username "${MONGO_ROOT_USER:-ngvms_root}" \
+        --password "${MONGO_ROOT_PASSWORD:?MONGO_ROOT_PASSWORD required}" \
+        --authenticationDatabase admin \
+        --drop --gzip --archive < "$BACKUP_DIR/mongodb_ngvms.gz"
+    log "Database reconstruction finished."
 else
-    echo "[WARN] No MongoDB backup found in $BACKUP_DIR."
+    warn "No database archive 'mongodb_ngvms.gz' found inside backup folder. Bypassing MongoDB restore."
 fi
 
-# 2. MinIO Restore
+# ── 2. OBJECTS STORAGE RECONSTRUCTION ─────────────────────────────────────────
 if [ -f "$BACKUP_DIR/minio_data.tar.gz" ]; then
-    echo "[INFO] Restoring MinIO Object Storage..."
+    log "Initiating asset storage reconstruction..."
     docker run --rm --volumes-from ngvms_minio -v "$(pwd)/$BACKUP_DIR":/backup alpine sh -c "cd /data && rm -rf * && tar xzf /backup/minio_data.tar.gz -C /"
-    echo "[OK] MinIO restored."
+    log "Asset storage reconstruction finished."
 else
-    echo "[WARN] No MinIO backup found in $BACKUP_DIR."
+    warn "No asset storage archive 'minio_data.tar.gz' found inside backup folder. Bypassing MinIO restore."
 fi
 
-# 3. Post-Restore Validation
-echo "[INFO] Running post-restore health check..."
-if docker exec ngvms_mongo mongosh -u "${MONGO_ROOT_USER:-ngvms_root}" -p "${MONGO_ROOT_PASSWORD}" --authenticationDatabase admin --quiet --eval "db.getMongo().getDBs()"; then
-    echo "[OK] Database is responding."
+# ── 3. HEALTH DIAGNOSTIC POST-CHECK ───────────────────────────────────────────
+log "Validating active system health..."
+if docker exec ngvms_mongo mongosh -u "${MONGO_ROOT_USER:-ngvms_root}" -p "${MONGO_ROOT_PASSWORD}" --authenticationDatabase admin --quiet --eval "db.getMongo().getDBs()" &>/dev/null; then
+    echo "======================================================================"
+    echo -e "${GREEN}  ✅ PLATFORM SUCCESSFULLY RESTORED${NC}"
+    echo "======================================================================"
 else
-    echo "[ERROR] Database validation failed!"
-    exit 1
+    err "Platform restored, but connectivity checks to MongoDB failed!"
 fi
-
-echo "================================================="
-echo "   ✅ RESTORE COMPLETED SUCCESSFULLY            "
-echo "================================================="
