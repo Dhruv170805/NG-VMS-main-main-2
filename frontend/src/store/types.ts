@@ -38,6 +38,12 @@ export const getTenantId = () => {
 
   // 3. Fallback to Hostname (standard multi-tenant resolution)
   const hostname = window.location.hostname;
+  
+  // If it's an IP address or local network domain, do not split it as a subdomain
+  if (/^\d{1,3}(?:\.\d{1,3}){3}$/.test(hostname) || hostname === 'localhost' || hostname.endsWith('.local') || hostname.endsWith('.lan') || hostname.endsWith('.internal')) {
+    return '';
+  }
+
   const parts = hostname.split('.');
   if (parts.length >= 2) {
     if (parts[0].toLowerCase() === 'www' && parts.length > 1) return parts[1];

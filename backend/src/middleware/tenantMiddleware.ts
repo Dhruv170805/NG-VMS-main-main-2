@@ -52,7 +52,11 @@ export const tenantMiddleware = async (req: Request, res: Response, next: NextFu
       if (!isTest || isRelaxedMode || isExempt) {
         const tenantCount = await Tenant.countDocuments();
         if (tenantCount === 1 || isRelaxedMode) {
-          tenant = await Tenant.findOne();
+          // Prefer a real tenant over default/demo ghost tenants
+          tenant = await Tenant.findOne({ subdomain: { $nin: ['demo', 'localhost', 'default'] } }).sort({ createdAt: -1 });
+          if (!tenant) {
+            tenant = await Tenant.findOne().sort({ createdAt: -1 });
+          }
         }
       }
     }

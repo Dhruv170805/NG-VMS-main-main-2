@@ -25,7 +25,7 @@ export const registerEmployee: RequestHandler = async (req, res): Promise<void> 
     // Set Access Token Cookie (15 mins)
     res.cookie('token', accessToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: process.env.NODE_ENV === 'production' && process.env.DEPLYOMENT_MODE !== 'ON_PREM',
       sameSite: 'strict',
       maxAge: getAccessMaxAge()
     });
@@ -33,7 +33,7 @@ export const registerEmployee: RequestHandler = async (req, res): Promise<void> 
     // Set Refresh Token Cookie (30 days)
     res.cookie('refreshToken', refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: process.env.NODE_ENV === 'production' && process.env.DEPLYOMENT_MODE !== 'ON_PREM',
       sameSite: 'strict',
       maxAge: getRefreshMaxAge()
     });
