@@ -17,7 +17,7 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 # Build-time args — injected by docker-compose build args
-ARG NEXT_PUBLIC_API_URL=/api
+ARG NEXT_PUBLIC_API_URL=/api/v1
 ARG NEXT_PUBLIC_SOCKET_URL=/
 
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL \

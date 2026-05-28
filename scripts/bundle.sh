@@ -4,6 +4,8 @@
 
 set -euo pipefail
 
+# Ensure we run from the project root
+cd "$(dirname "$0")/.."
 VERSION="${1:-2.1.1}"
 BUNDLE_DIR="ngvms-enterprise-v${VERSION}"
 OUTPUT="${BUNDLE_DIR}.tar.gz"
@@ -65,12 +67,12 @@ cp docker-compose.iis.yml      "${BUNDLE_DIR}/docker-compose.iis.yml"
 cp Caddyfile                   "${BUNDLE_DIR}/Caddyfile"
 cp web.config.example          "${BUNDLE_DIR}/web.config.example"
 cp .env.example                "${BUNDLE_DIR}/.env.example"
-cp install.sh                  "${BUNDLE_DIR}/install.sh"
-cp update.sh                   "${BUNDLE_DIR}/update.sh"
-cp restore.sh                  "${BUNDLE_DIR}/restore.sh"
-cp healthcheck.sh              "${BUNDLE_DIR}/healthcheck.sh"
-cp install.ps1                 "${BUNDLE_DIR}/install.ps1"
-cp launcher.bat                "${BUNDLE_DIR}/launcher.bat"
+cp scripts/install.sh          "${BUNDLE_DIR}/install.sh"
+cp scripts/update.sh           "${BUNDLE_DIR}/update.sh"
+cp scripts/restore.sh          "${BUNDLE_DIR}/restore.sh"
+cp scripts/healthcheck.sh      "${BUNDLE_DIR}/healthcheck.sh"
+cp scripts/install.ps1         "${BUNDLE_DIR}/install.ps1"
+cp scripts/launcher.bat        "${BUNDLE_DIR}/launcher.bat"
 cp README.md                   "${BUNDLE_DIR}/README.md"
 cp monitoring/prometheus.yml   "${BUNDLE_DIR}/monitoring/prometheus.yml"
 cp monitoring/alert.rules.yml  "${BUNDLE_DIR}/monitoring/alert.rules.yml"

@@ -3,7 +3,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-Set-Location -Path $PSScriptRoot
+Set-Location -Path "$PSScriptRoot\.."
 
 function Write-Info($Message) {
   Write-Host "[OK] $Message" -ForegroundColor Green
@@ -63,7 +63,7 @@ $env:GRAFANA_PASSWORD = 'dummy_grafana_pass'
 
 try {
   docker compose -f docker-compose.prod.yml build --no-cache `
-    --build-arg NEXT_PUBLIC_API_URL=/api `
+    --build-arg NEXT_PUBLIC_API_URL=/api/v1 `
     --build-arg NEXT_PUBLIC_SOCKET_URL=/
 }
 finally {
@@ -102,12 +102,12 @@ $filesToCopy = @{
   'Caddyfile'                   = "$BundleDir/Caddyfile"
   'web.config.example'          = "$BundleDir/web.config.example"
   '.env.example'                = "$BundleDir/.env.example"
-  'install.sh'                  = "$BundleDir/install.sh"
-  'update.sh'                   = "$BundleDir/update.sh"
-  'restore.sh'                  = "$BundleDir/restore.sh"
-  'healthcheck.sh'              = "$BundleDir/healthcheck.sh"
-  'install.ps1'                 = "$BundleDir/install.ps1"
-  'launcher.bat'                = "$BundleDir/launcher.bat"
+  'scripts/install.sh'          = "$BundleDir/install.sh"
+  'scripts/update.sh'           = "$BundleDir/update.sh"
+  'scripts/restore.sh'          = "$BundleDir/restore.sh"
+  'scripts/healthcheck.sh'      = "$BundleDir/healthcheck.sh"
+  'scripts/install.ps1'         = "$BundleDir/install.ps1"
+  'scripts/launcher.bat'        = "$BundleDir/launcher.bat"
   'README.md'                   = "$BundleDir/README.md"
   'monitoring/prometheus.yml'   = "$BundleDir/monitoring/prometheus.yml"
   'monitoring/alert.rules.yml'  = "$BundleDir/monitoring/alert.rules.yml"
