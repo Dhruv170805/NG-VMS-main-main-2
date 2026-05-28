@@ -53,8 +53,12 @@ export const getOrGenerateKeys = (): KeyPair => {
   keyPair = { publicKey, privateKey };
   
   // Persist to disk so restarts don't invalidate existing signatures
-  fs.writeFileSync(KEYS_PATH, JSON.stringify(keyPair, null, 2));
-  console.log(`[KEYS] Key pair saved to ${KEYS_PATH}`);
+  try {
+    fs.writeFileSync(KEYS_PATH, JSON.stringify(keyPair, null, 2));
+    console.log(`[KEYS] Key pair saved to ${KEYS_PATH}`);
+  } catch (err: any) {
+    console.warn(`[KEYS] Warning: Could not save key pair to ${KEYS_PATH} (${err.message}). Using ephemeral keys.`);
+  }
 
   return keyPair;
 };
