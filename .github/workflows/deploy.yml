@@ -82,6 +82,11 @@ jobs:
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
     
+    # Required permissions to push to GitHub Container Registry
+    permissions:
+      contents: read
+      packages: write
+
     steps:
     - uses: actions/checkout@v4
     
@@ -95,11 +100,17 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
       
+    - name: Lowercase image names
+      id: lowercase
+      run: |
+        echo "backend_image=ghcr.io/$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]')/ngvms-backend" >> $GITHUB_OUTPUT
+        echo "frontend_image=ghcr.io/$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]')/ngvms-frontend" >> $GITHUB_OUTPUT
+
     - name: Extract metadata (tags, labels) for Backend
       id: meta-backend
       uses: docker/metadata-action@v5
       with:
-        images: ghcr.io/${{ github.repository }}/ngvms-backend
+        images: ${{ steps.lowercase.outputs.backend_image }}
         tags: |
           type=raw,value=latest
           type=sha,prefix=,format=short
@@ -116,7 +127,7 @@ jobs:
       id: meta-frontend
       uses: docker/metadata-action@v5
       with:
-        images: ghcr.io/${{ github.repository }}/ngvms-frontend
+        images: ${{ steps.lowercase.outputs.frontend_image }}
         tags: |
           type=raw,value=latest
           type=sha,prefix=,format=short

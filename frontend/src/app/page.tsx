@@ -238,13 +238,16 @@ const Home = () => {
 
             <div className={styles.status_section}>
               <style dangerouslySetInnerHTML={{__html: `
-                .glass-input::placeholder {
+                .glass-input::placeholder,
+                .glass-input::-webkit-input-placeholder {
                   color: #000000 !important;
                   opacity: 1 !important;
+                  font-weight: 500 !important;
                 }
                 .glass-input {
                   color: #000000 !important;
                   background-color: #ffffff !important;
+                  font-weight: 600 !important;
                 }
               `}} />
               <div style={{ marginBottom: '15px' }}>

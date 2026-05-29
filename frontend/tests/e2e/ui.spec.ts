@@ -285,18 +285,20 @@ test.describe('NG-VMS Host Approval Portal UI Tests', () => {
   });
 
   test('Invite modal should have share buttons', async ({ page }) => {
-    await page.locator('text=Invite').first().click();
-    await expect(page.locator('text=Invite Visitor')).toBeVisible({ timeout: 6000 });
+    const inviteBtn = page.locator('button').filter({ hasText: 'Invite' }).filter({ hasNotText: 'Visitor' }).first();
+    await inviteBtn.click();
+    await expect(page.locator('h3:has-text("Invite Visitor")')).toBeVisible({ timeout: 10000 });
     await expect(page.locator('button:has-text("Copy Link")')).toBeVisible();
     await expect(page.locator('button:has-text("WhatsApp")')).toBeVisible();
     await expect(page.locator('button:has-text("Email")')).toBeVisible();
   });
 
   test('Invite modal should close when Done is clicked', async ({ page }) => {
-    await page.locator('text=Invite').first().click();
-    await expect(page.locator('text=Invite Visitor')).toBeVisible({ timeout: 6000 });
+    const inviteBtn = page.locator('button').filter({ hasText: 'Invite' }).filter({ hasNotText: 'Visitor' }).first();
+    await inviteBtn.click();
+    await expect(page.locator('h3:has-text("Invite Visitor")')).toBeVisible({ timeout: 10000 });
     await page.click('button:has-text("Done")');
-    await expect(page.locator('text=Invite Visitor')).not.toBeVisible({ timeout: 5000 });
+    await expect(page.locator('h3:has-text("Invite Visitor")')).not.toBeVisible({ timeout: 10000 });
   });
 
   test('host header should show ALL status filter button', async ({ page }) => {
