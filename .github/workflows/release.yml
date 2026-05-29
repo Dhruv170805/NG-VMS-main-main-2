@@ -1,0 +1,174 @@
+name: Release Bundle
+
+# Triggers when you push a version tag like: git tag v2.1.1 && git push origin v2.1.1
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write      # needed to create GitHub Release + upload assets
+      packages: write      # needed to push Docker images to GHCR
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    # ── 1. Build & Push Docker Images to GHCR ─────────────────────────────────
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Login to GitHub Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Compute lowercase image names and version
+      id: vars
+      run: |
+        REPO=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+        VERSION=${GITHUB_REF_NAME#v}   # strip leading 'v' from tag (v2.1.1 → 2.1.1)
+        echo "backend_image=ghcr.io/${REPO}/ngvms-backend"   >> $GITHUB_OUTPUT
+        echo "frontend_image=ghcr.io/${REPO}/ngvms-frontend" >> $GITHUB_OUTPUT
+        echo "version=${VERSION}"                             >> $GITHUB_OUTPUT
+        echo "tag=${GITHUB_REF_NAME}"                        >> $GITHUB_OUTPUT
+
+    - name: Build and Push Backend Image
+      uses: docker/build-push-action@v6
+      with:
+        context: ./backend
+        push: true
+        tags: |
+          ${{ steps.vars.outputs.backend_image }}:latest
+          ${{ steps.vars.outputs.backend_image }}:${{ steps.vars.outputs.tag }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    - name: Build and Push Frontend Image
+      uses: docker/build-push-action@v6
+      with:
+        context: ./frontend
+        push: true
+        tags: |
+          ${{ steps.vars.outputs.frontend_image }}:latest
+          ${{ steps.vars.outputs.frontend_image }}:${{ steps.vars.outputs.tag }}
+        build-args: |
+          NEXT_PUBLIC_API_URL=/api/v1
+          NEXT_PUBLIC_SOCKET_URL=/
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    # ── 2. Assemble Client Bundle (no source code) ─────────────────────────────
+    - name: Assemble release bundle
+      run: |
+        VERSION="${{ steps.vars.outputs.version }}"
+        BUNDLE_DIR="ngvms-enterprise-v${VERSION}"
+        OUTPUT="${BUNDLE_DIR}.tar.gz"
+
+        mkdir -p "${BUNDLE_DIR}/monitoring"
+        mkdir -p "${BUNDLE_DIR}/data/mongo"
+
+        # Copy deployment files only (no source)
+        cp docker-compose.prod.yml     "${BUNDLE_DIR}/docker-compose.yml"
+        cp docker-compose.iis.yml      "${BUNDLE_DIR}/docker-compose.iis.yml"
+        cp Caddyfile                   "${BUNDLE_DIR}/Caddyfile"
+        cp web.config.example          "${BUNDLE_DIR}/web.config.example"
+        cp .env.example                "${BUNDLE_DIR}/.env.example"
+        cp scripts/install.sh          "${BUNDLE_DIR}/install.sh"
+        cp scripts/update.sh           "${BUNDLE_DIR}/update.sh"
+        cp scripts/restore.sh          "${BUNDLE_DIR}/restore.sh"
+        cp scripts/healthcheck.sh      "${BUNDLE_DIR}/healthcheck.sh"
+        cp scripts/install.ps1         "${BUNDLE_DIR}/install.ps1"
+        cp scripts/launcher.bat        "${BUNDLE_DIR}/launcher.bat"
+        cp README.md                   "${BUNDLE_DIR}/README.md"
+        cp monitoring/prometheus.yml   "${BUNDLE_DIR}/monitoring/prometheus.yml"
+        cp monitoring/alert.rules.yml  "${BUNDLE_DIR}/monitoring/alert.rules.yml"
+        cp monitoring/alertmanager.yml "${BUNDLE_DIR}/monitoring/alertmanager.yml"
+
+        # Make scripts executable
+        chmod +x "${BUNDLE_DIR}/install.sh"
+        chmod +x "${BUNDLE_DIR}/update.sh"
+        chmod +x "${BUNDLE_DIR}/restore.sh"
+        chmod +x "${BUNDLE_DIR}/healthcheck.sh"
+
+        # Create SHA256 checksum for verification
+        tar -czf "${OUTPUT}" "${BUNDLE_DIR}/"
+        sha256sum "${OUTPUT}" > "${OUTPUT}.sha256"
+
+        echo "bundle_name=${OUTPUT}" >> $GITHUB_ENV
+        echo "bundle_sha=${OUTPUT}.sha256" >> $GITHUB_ENV
+        echo "bundle_dir=${BUNDLE_DIR}" >> $GITHUB_ENV
+        echo ""
+        echo "Bundle created: ${OUTPUT} ($(du -h "${OUTPUT}" | cut -f1))"
+
+    # ── 3. Generate Release Notes ──────────────────────────────────────────────
+    - name: Generate release notes
+      id: notes
+      run: |
+        VERSION="${{ steps.vars.outputs.version }}"
+        REPO="${{ github.repository }}"
+        REPO_LOWER=$(echo "${REPO}" | tr '[:upper:]' '[:lower:]')
+        cat <<EOF > release_notes.md
+        ## NG-VMS Enterprise v${VERSION}
+
+        ### 🐳 Docker Images (GitHub Container Registry)
+        Pull directly on your server — no build required:
+        \`\`\`bash
+        docker pull ghcr.io/${REPO_LOWER}/ngvms-backend:v${VERSION}
+        docker pull ghcr.io/${REPO_LOWER}/ngvms-frontend:v${VERSION}
+        \`\`\`
+
+        ### 📦 Client Bundle
+        Download \`ngvms-enterprise-v${VERSION}.tar.gz\` below and follow the Quick Install instructions.
+
+        #### Linux / macOS:
+        \`\`\`bash
+        tar -xzf ngvms-enterprise-v${VERSION}.tar.gz
+        cd ngvms-enterprise-v${VERSION}
+        chmod +x install.sh && sudo ./install.sh
+        \`\`\`
+
+        #### Windows (PowerShell as Administrator):
+        \`\`\`powershell
+        tar -xzf ngvms-enterprise-v${VERSION}.tar.gz
+        cd ngvms-enterprise-v${VERSION}
+        Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+        .\\install.ps1
+        \`\`\`
+
+        ### ✅ Verify Download Integrity
+        \`\`\`bash
+        sha256sum -c ngvms-enterprise-v${VERSION}.tar.gz.sha256
+        \`\`\`
+
+        ### 📋 What's included in the bundle
+        - \`docker-compose.yml\` — Production stack (Caddy reverse proxy)
+        - \`docker-compose.iis.yml\` — Windows IIS reverse proxy variant
+        - \`install.sh\` / \`install.ps1\` — One-click installers (Linux & Windows)
+        - \`update.sh\` — Rolling update script
+        - \`restore.sh\` — Disaster recovery restore
+        - \`healthcheck.sh\` — Platform health diagnostic
+        - \`Caddyfile\` — Reverse proxy config
+        - \`.env.example\` — Configuration template
+        - Monitoring configs (Prometheus, Alertmanager)
+        EOF
+
+    # ── 4. Publish GitHub Release ──────────────────────────────────────────────
+    - name: Create GitHub Release and upload bundle
+      uses: softprops/action-gh-release@v2
+      with:
+        name: "NG-VMS Enterprise v${{ steps.vars.outputs.version }}"
+        body_path: release_notes.md
+        draft: false
+        prerelease: false
+        files: |
+          ${{ env.bundle_name }}
+          ${{ env.bundle_sha }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
