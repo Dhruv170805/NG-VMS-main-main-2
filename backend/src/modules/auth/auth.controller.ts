@@ -18,25 +18,29 @@ const getRefreshMaxAge = () => {
 };
 
 export const registerEmployee: RequestHandler = async (req, res): Promise<void> => {
-  const { body, tenantId } = req as TenantRequest;
+  const { body, tenantId, user } = req as AuthRequest;
   try {
     const { employee, accessToken, refreshToken } = await AuthService.registerEmployee(body, tenantId!);
     
-    // Set Access Token Cookie (15 mins)
-    res.cookie('token', accessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production' && req.secure,
-      sameSite: 'strict',
-      maxAge: getAccessMaxAge()
-    });
+    // Only set cookies if the requester is NOT already an authenticated admin
+    // This prevents the admin session from being replaced when creating new users
+    if (!user || user.role !== 'ADMIN') {
+      // Set Access Token Cookie (15 mins)
+      res.cookie('token', accessToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production' && req.secure,
+        sameSite: 'strict',
+        maxAge: getAccessMaxAge()
+      });
 
-    // Set Refresh Token Cookie (30 days)
-    res.cookie('refreshToken', refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production' && req.secure,
-      sameSite: 'strict',
-      maxAge: getRefreshMaxAge()
-    });
+      // Set Refresh Token Cookie (30 days)
+      res.cookie('refreshToken', refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production' && req.secure,
+        sameSite: 'strict',
+        maxAge: getRefreshMaxAge()
+      });
+    }
 
     res.status(201).json({
       _id: employee._id,
