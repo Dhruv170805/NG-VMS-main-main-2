@@ -25,6 +25,7 @@ services:
       SMTP_FROM: ${SMTP_FROM:-no-reply@ng-vms.enterprise}
       DISABLE_RATE_LIMITS: "false"
       SKIP_HW_LOCK: ${SKIP_HW_LOCK:-false}
+      ALLOW_UNSIGNED_LICENSE: "true"
     depends_on:
       redis:
         condition: service_started
