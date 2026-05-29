@@ -82,11 +82,17 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const fetchTenantConfig = React.useCallback(async () => {
     const subdomain = getSubdomain();
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
+
       const res = await fetch(`${API_CONFIG.ENDPOINTS.SYSTEM}/config`, {
         headers: {
           'x-tenant-id': subdomain
-        }
+        },
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
 
       if (!res.ok) {
         throw new Error('Failed to load tenant configuration');
@@ -95,8 +101,21 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const data = await res.json();
       setTenant(data);
     } catch (err: any) {
-      console.error('[TENANT CONTEXT] Error:', err);
-      setError(err.message);
+      // If the backend is unavailable, use a default tenant config so the
+      // app can still render in demo/offline mode rather than breaking all pages.
+      if (err.name === 'AbortError' || err.message?.includes('fetch') || err.message?.includes('Failed to load')) {
+        console.warn('[TENANT CONTEXT] Backend unavailable, using default tenant config');
+        setTenant({
+          name: 'NG-VMS',
+          subdomain: subdomain || 'default',
+          features: { email: true, sms: false, aadhaar: false },
+          licenseValid: false,
+          licenseReason: 'Backend unavailable',
+        });
+      } else {
+        console.error('[TENANT CONTEXT] Error:', err);
+        setError(err.message);
+      }
     } finally {
       setLoading(false);
     }

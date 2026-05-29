@@ -51,9 +51,12 @@ jobs:
       run: |
         cd frontend
         npm run build
+        # Next.js standalone needs public/ and .next/static/ copied manually
+        cp -r public .next/standalone/public
+        cp -r .next/static .next/standalone/.next/static
       env:
-        NEXT_PUBLIC_API_URL: /api/v1
-        NEXT_PUBLIC_SOCKET_URL: /
+        NEXT_PUBLIC_API_URL: http://localhost:5000/api/v1
+        NEXT_PUBLIC_SOCKET_URL: http://localhost:5000
 
     - name: Run Backend Tests
       run: |
@@ -92,14 +95,25 @@ jobs:
         cd frontend
         npx playwright install --with-deps chromium
 
-    - name: Run E2E Tests (Frontend)
+    - name: Run Smoke & A11y Tests (no backend needed)
       run: |
         cd frontend
-        npx playwright test
+        npx playwright test tests/e2e/smoke.spec.ts tests/a11y/
       env:
         PLAYWRIGHT_BASE_URL: http://localhost:3000
         NEXT_PUBLIC_API_URL: http://localhost:5000/api/v1
         NEXT_PUBLIC_SOCKET_URL: http://localhost:5000
+        CI: true
+
+    - name: Run E2E Tests (requires backend)
+      run: |
+        cd frontend
+        npx playwright test tests/e2e/ --ignore=tests/e2e/smoke.spec.ts
+      env:
+        PLAYWRIGHT_BASE_URL: http://localhost:3000
+        NEXT_PUBLIC_API_URL: http://localhost:5000/api/v1
+        NEXT_PUBLIC_SOCKET_URL: http://localhost:5000
+        CI: true
 
   docker-build:
     needs: build-and-test

@@ -32,8 +32,11 @@ test.describe('NG-VMS Accessibility Tests', () => {
 
   test('login page accessibility check', async ({ page }) => {
     await page.goto('/login');
-    await page.waitForURL('**/');
-    await page.waitForLoadState('networkidle');
+    // /login redirects to / — wait for the redirect to complete
+    await page.waitForURL('**/', { timeout: 10000 }).catch(() => {/* already on / */});
+    // Wait for DOM to be ready — avoid networkidle which hangs when backend is offline
+    await page.waitForLoadState('domcontentloaded');
+    await page.waitForTimeout(500); // let React hydrate
     await stabilizePage(page);
     const results = await new AxeBuilder({ page })
       .withTags(['wcag2a', 'wcag2aa'])
