@@ -38,9 +38,7 @@ RUN apt-get update --fix-missing && \
     apt-get install -y --fix-missing --no-install-recommends \
       libcairo2 libpango-1.0-0 libjpeg62-turbo libgif7 librsvg2-2 \
       curl && \
-    rm -rf /var/lib/apt/lists/* && \
-    # Remove curl after healthcheck usage or keep for diagnostics
-    apt-get clean
+    rm -rf /var/lib/apt/lists/*
 
 # Non-root user
 RUN groupadd --gid 1001 nodejs && \
@@ -57,7 +55,6 @@ USER ngvms
 # Environment defaults (override via docker-compose or env injection)
 ENV NODE_ENV=production \
     PORT=5000 \
-    # Prevent OTEL from crashing if collector unreachable
     OTEL_SDK_DISABLED=false
 
 EXPOSE 5000

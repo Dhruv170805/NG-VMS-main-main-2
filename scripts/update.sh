@@ -67,12 +67,18 @@ docker compose pull || true
 log "Relaunching container services..."
 docker compose up -d --remove-orphans
 
-# ── 4. POST-UPGRADE SYSTEM RE-VALIDATION ──────────────────────────────────────
-log "Executing database schema migrations check..."
-sleep 5
-if docker compose exec -T backend npm run lint &>/dev/null || true; then
-    log "[OK] Database schemas validated."
-fi
+# ── 4. POST-UPGRADE BACKEND HEALTH WAIT ───────────────────────────────────────
+log "Waiting for backend API to become available..."
+for i in {1..30}; do
+    if docker compose exec -T backend curl -sf http://localhost:5000/health > /dev/null 2>&1; then
+        log "Backend API is healthy and ready."
+        break
+    fi
+    if [ "$i" -eq 30 ]; then
+        warn "Backend API did not become healthy within 150s. Check logs with: docker compose logs backend"
+    fi
+    sleep 5
+done
 
 log "Running health diagnostics check..."
 chmod +x ./healthcheck.sh

@@ -147,14 +147,18 @@ log "Launching application containers..."
 docker compose pull || true
 docker compose up -d
 
-# ── 9. RUN COMPATIBLE DATABASE SCHEMA VALIDATIONS ──────────────────────────────
-log "Triggering database schema migrations..."
-# Mongoose handles schema creation dynamically, but we execute an verification run
-# to align with standard enterprise staging protocols.
-sleep 5
-if docker compose exec -T backend npm run lint &>/dev/null || true; then
-    log "[OK] Database migrations / Schema models verified."
-fi
+# ── 9. WAIT FOR BACKEND TO BECOME HEALTHY ─────────────────────────────────────
+log "Waiting for backend API to become available..."
+for i in {1..30}; do
+    if docker compose exec -T backend curl -sf http://localhost:5000/health > /dev/null 2>&1; then
+        log "Backend API is healthy and ready."
+        break
+    fi
+    if [ "$i" -eq 30 ]; then
+        warn "Backend API did not become healthy within 150s. Check logs with: docker compose logs backend"
+    fi
+    sleep 5
+done
 
 # ── 10. TRIGGER HEALTHCHECK RUN ────────────────────────────────────────────────
 log "Initiating platform health diagnostics..."

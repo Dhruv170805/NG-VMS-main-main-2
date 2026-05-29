@@ -13,7 +13,7 @@ FROM deps AS builder
 
 WORKDIR /app
 
-COPY --from=deps /app/node_modules ./node_modules
+# node_modules already present from deps stage — just copy source
 COPY . .
 
 # Build-time args — injected by docker-compose build args

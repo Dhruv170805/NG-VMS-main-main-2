@@ -3,7 +3,7 @@
 
 services:
   backend:
-    image: ngvms-backend:latest
+    image: ghcr.io/${GITHUB_REPOSITORY:-dhruv170805/ng-vms-main-main-2}/ngvms-backend:latest
     container_name: ngvms_backend
     restart: unless-stopped
     ports:
@@ -22,10 +22,11 @@ services:
       MINIO_USE_SSL: "false"
       SMTP_HOST: smtp_relay
       SMTP_PORT: "1025"
+      SMTP_FROM: ${SMTP_FROM:-no-reply@ng-vms.enterprise}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
       LICENSE_SECRET: ${LICENSE_SECRET:-default-secret-key-123}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:-default-secret-key-123}
-      ALLOW_UNSIGNED_LICENSE: "true"
+      SKIP_HW_LOCK: ${SKIP_HW_LOCK:-false}
     deploy:
       resources:
         limits:
@@ -36,6 +37,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
+      start_period: 40s
     depends_on:
       mongo:
         condition: service_healthy
@@ -49,7 +51,7 @@ services:
       - ngvms_network
 
   frontend:
-    image: ghcr.io/${GITHUB_REPOSITORY:-enterprise}/ngvms-frontend:latest
+    image: ghcr.io/${GITHUB_REPOSITORY:-dhruv170805/ng-vms-main-main-2}/ngvms-frontend:latest
     container_name: ngvms_frontend
     restart: unless-stopped
     ports:
@@ -85,7 +87,7 @@ services:
         cp /data/configdb/mongo.key /tmp/mongo.key
         chmod 400 /tmp/mongo.key
         chown 999:999 /tmp/mongo.key
-         exec /usr/local/bin/docker-entrypoint.sh mongod --replSet rs0 --bind_ip_all --auth --keyFile /tmp/mongo.key
+        exec /usr/local/bin/docker-entrypoint.sh mongod --replSet rs0 --bind_ip_all --auth --keyFile /tmp/mongo.key
     restart: unless-stopped
     networks: [ngvms_network]
     volumes:
@@ -93,14 +95,15 @@ services:
       - ./data/mongo:/data/configdb
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:-ngvms_root}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?MONGO_ROOT_PASSWORD required}
     healthcheck:
       test: |
-        echo "try { rs.status() } catch(e) { rs.initiate({_id:'rs0',members:[{_id:0,host:'mongo:27017'}]}) }" | \
-        mongosh --quiet -u ${MONGO_ROOT_USER:-ngvms_root} -p ${MONGO_ROOT_PASSWORD} --authenticationDatabase admin
-      interval: 10s
-      timeout: 5s
-      retries: 5
+        echo "try { rs.status() } catch(e) { rs.initiate({_id:'rs0',members:[{_id:0,host:'mongo:27017'}]}) }" |
+        mongosh --quiet -u "${MONGO_ROOT_USER:-ngvms_root}" -p "${MONGO_ROOT_PASSWORD}" --authenticationDatabase admin
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
 
   redis:
     image: redis:7-alpine
@@ -109,7 +112,7 @@ services:
     networks: [ngvms_network]
     volumes:
       - redis_data:/data
-    command: redis-server --requirepass ${REDIS_PASSWORD}
+    command: redis-server --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD required}
     healthcheck:
       test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 10s
@@ -121,8 +124,8 @@ services:
     container_name: ngvms_minio
     environment:
       MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY}
-    command: server /data
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:?MINIO_SECRET_KEY required}
+    command: server /data --console-address ":9001"
     restart: unless-stopped
     networks: [ngvms_network]
     volumes:
@@ -135,19 +138,6 @@ services:
 
   smtp_relay:
     image: maildev/maildev:latest
-    container_name: ngvms_smtp
-    restart: unless-stopped
-    networks: [ngvms_network]
-
-networks:
-  ngvms_network:
-    driver: bridge
-
-volumes:
-  mongo_data:
-  minio_data:
-  redis_data:
-aildev:latest
     container_name: ngvms_smtp
     restart: unless-stopped
     networks: [ngvms_network]

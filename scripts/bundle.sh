@@ -1,5 +1,7 @@
 #!/bin/bash
 # NG-VMS Enterprise Bundler — produces a client-deliverable with NO source code
+# Images are built immutably via GitHub Actions CI/CD and pushed to GHCR.
+# This script packages all deployment config files for the client bundle.
 # Usage: ./bundle.sh [version]
 
 set -euo pipefail
@@ -21,45 +23,38 @@ echo "   📦 NG-VMS ENTERPRISE BUNDLER v${VERSION}"
 echo "=================================================="
 
 # ── Prereqs ────────────────────────────────────────────────────────────────
-command -v docker   &>/dev/null || die "Docker not found"
+command -v docker  &>/dev/null || die "Docker not found"
 docker compose version &>/dev/null || die "Docker Compose v2 not found"
+command -v tar     &>/dev/null || die "tar not found"
 
-# ── Build images from prod compose ─────────────────────────────────────────
-log "Building Docker images (prod compose)..."
-REDIS_PASSWORD=dummy_redis_pass \
-MONGO_ROOT_PASSWORD=dummy_mongo_pass \
-MINIO_SECRET_KEY=dummy_minio_secret \
-JWT_SECRET=dummy_jwt_secret \
-LICENSE_SECRET=dummy_license_secret \
-ENCRYPTION_KEY=dummy_enc_key \
-GRAFANA_PASSWORD=dummy_grafana_pass \
-docker compose -f docker-compose.prod.yml build --no-cache \
-  --build-arg NEXT_PUBLIC_API_URL=/api/v1 \
-  --build-arg NEXT_PUBLIC_SOCKET_URL=/
+log "Skipping local Docker build. Images are built immutably via GitHub Actions CI/CD."
 
-log "Tagging images..."
-docker tag ngvms-backend:latest  "ngvms-backend:${VERSION}"
-docker tag ngvms-frontend:latest "ngvms-frontend:${VERSION}"
+# ── Optional: export pre-pulled GHCR images for offline bundles ───────────────
+if [ "${EXPORT_IMAGES:-false}" = "true" ]; then
+  log "Pulling images from GHCR for offline export..."
+  REPO="${GITHUB_REPOSITORY:-dhruv170805/ng-vms-main-main-2}"
+  REGISTRY="ghcr.io/$(echo "${REPO}" | tr '[:upper:]' '[:lower:]')"
+  docker pull "${REGISTRY}/ngvms-backend:latest"
+  docker pull "${REGISTRY}/ngvms-frontend:latest"
 
-# ── Export images ───────────────────────────────────────────────────────────
-log "Exporting Docker images → ${IMAGES_TAR} (may take a few minutes)..."
-docker save \
-  "ngvms-backend:latest" \
-  "ngvms-frontend:latest" \
-  "mongo:6" \
-  "redis:7-alpine" \
-  "minio/minio:latest" \
-  "caddy:2-alpine" \
-  "maildev/maildev:latest" \
-  -o "${IMAGES_TAR}"
-
-log "Images exported: $(du -h ${IMAGES_TAR} | cut -f1)"
+  log "Exporting Docker images → ${IMAGES_TAR} (may take a few minutes)..."
+  docker save \
+    "${REGISTRY}/ngvms-backend:latest" \
+    "${REGISTRY}/ngvms-frontend:latest" \
+    "mongo:6" \
+    "redis:7-alpine" \
+    "minio/minio:latest" \
+    "caddy:2-alpine" \
+    "maildev/maildev:latest" \
+    -o "${IMAGES_TAR}"
+  log "Images exported: $(du -h "${IMAGES_TAR}" | cut -f1)"
+fi
 
 # ── Assemble bundle directory ───────────────────────────────────────────────
 log "Assembling bundle..."
 rm -rf "${BUNDLE_DIR}"
 mkdir -p "${BUNDLE_DIR}/monitoring"
-mkdir -p "${BUNDLE_DIR}/caddy"
+mkdir -p "${BUNDLE_DIR}/data/mongo"
 
 # Core deployment files — NO source code
 cp docker-compose.prod.yml     "${BUNDLE_DIR}/docker-compose.yml"
@@ -90,8 +85,13 @@ else
   warn "License file (*_NGS.lic) NOT found — client must supply their own"
 fi
 
-# Image tarball
-mv "${IMAGES_TAR}" "${BUNDLE_DIR}/${IMAGES_TAR}"
+# Image tarball (offline mode)
+if [ -f "${IMAGES_TAR}" ]; then
+  mv "${IMAGES_TAR}" "${BUNDLE_DIR}/${IMAGES_TAR}"
+  log "Included offline images tarball (${IMAGES_TAR})"
+else
+  warn "Offline images tarball (${IMAGES_TAR}) not found. Client will pull from GHCR."
+fi
 
 # Make scripts executable
 chmod +x "${BUNDLE_DIR}/install.sh"
@@ -107,7 +107,7 @@ rm -rf "${BUNDLE_DIR}"
 echo ""
 echo "=================================================="
 echo "   ✅ BUNDLE READY: ${OUTPUT}"
-echo "   SIZE: $(du -h ${OUTPUT} | cut -f1)"
+echo "   SIZE: $(du -h "${OUTPUT}" | cut -f1)"
 echo "=================================================="
 echo ""
 echo "  Deliver ${OUTPUT} to the client."
@@ -115,4 +115,7 @@ echo "  On the client server:"
 echo "    tar -xzf ${OUTPUT}"
 echo "    cd ${BUNDLE_DIR}"
 echo "    chmod +x install.sh && sudo ./install.sh"
+echo ""
+echo "  For offline image bundle (includes Docker images):"
+echo "    EXPORT_IMAGES=true ./bundle.sh [version]"
 echo "=================================================="

@@ -61,15 +61,21 @@ if (!(Test-Path .env)) {
         $bytes16 = New-Object byte[] 16; $rng.GetBytes($bytes16)
         $bytes8  = New-Object byte[] 8;  $rng.GetBytes($bytes8)
         $jwtSecret    = [BitConverter]::ToString($bytes32) -replace '-',''
+        $mongoPass    = [BitConverter]::ToString($bytes16) -replace '-',''
+        $redisPass    = [BitConverter]::ToString($bytes16) -replace '-',''
         $minioSecret  = [BitConverter]::ToString($bytes16) -replace '-',''
         $licSecret    = [BitConverter]::ToString($bytes16) -replace '-',''
+        $encKey       = [BitConverter]::ToString($bytes32) -replace '-',''
         $grafanaPass  = [BitConverter]::ToString($bytes8)  -replace '-',''
 
         # Update .env
-        (Get-Content .env) -replace 'JWT_SECRET=.*',        "JWT_SECRET=$jwtSecret"       | Set-Content .env
-        (Get-Content .env) -replace 'MINIO_SECRET_KEY=.*',  "MINIO_SECRET_KEY=$minioSecret" | Set-Content .env
-        (Get-Content .env) -replace 'LICENSE_SECRET=.*',    "LICENSE_SECRET=$licSecret"    | Set-Content .env
-        Add-Content .env "GRAFANA_PASSWORD=$grafanaPass"
+        (Get-Content .env) -replace 'JWT_SECRET=.*',          "JWT_SECRET=$jwtSecret"         | Set-Content .env
+        (Get-Content .env) -replace 'MONGO_ROOT_PASSWORD=.*', "MONGO_ROOT_PASSWORD=$mongoPass"  | Set-Content .env
+        (Get-Content .env) -replace 'REDIS_PASSWORD=.*',      "REDIS_PASSWORD=$redisPass"       | Set-Content .env
+        (Get-Content .env) -replace 'MINIO_SECRET_KEY=.*',    "MINIO_SECRET_KEY=$minioSecret"   | Set-Content .env
+        (Get-Content .env) -replace 'LICENSE_SECRET=.*',      "LICENSE_SECRET=$licSecret"       | Set-Content .env
+        (Get-Content .env) -replace 'ENCRYPTION_KEY=.*',      "ENCRYPTION_KEY=$encKey"          | Set-Content .env
+        (Get-Content .env) -replace 'GRAFANA_PASSWORD=.*',    "GRAFANA_PASSWORD=$grafanaPass"   | Set-Content .env
 
         Write-Host "[OK] Generated cryptographic secrets." -ForegroundColor Green
         Write-Host "[i] Grafana admin password: $grafanaPass" -ForegroundColor Cyan
@@ -88,19 +94,22 @@ foreach ($dir in $dirs) {
 }
 
 # Ensure Keyfile for Mongo Replica Sets
-if (!(Test-Path "data/mongo/mongo.key")) {
+$keyfilePath = Join-Path (Get-Location).Path "data/mongo/mongo.key"
+if (!(Test-Path $keyfilePath)) {
     $bytes = New-Object byte[] 756
     $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
     $rng.GetBytes($bytes)
     $key = [Convert]::ToBase64String($bytes)
-    [IO.File]::WriteAllText((Join-Path $PSScriptRoot "data/mongo/mongo.key"), $key)
+    [IO.File]::WriteAllText($keyfilePath, $key)
     Write-Host "[OK] MongoDB replica keyfile generated." -ForegroundColor Green
 }
 
 # --- 3. LICENSE CHECK ---
 Write-Host "[3/7] Verifying License..." -ForegroundColor White
 $licFile = ""
-if (Test-Path "PE_01&VMS_NGS.lic") {
+if (Test-Path "PE02&VMS_NGS.lic") {
+    $licFile = "PE02&VMS_NGS.lic"
+} elseif (Test-Path "PE_01&VMS_NGS.lic") {
     $licFile = "PE_01&VMS_NGS.lic"
 } elseif (Test-Path "license_NGS.lic") {
     $licFile = "license_NGS.lic"

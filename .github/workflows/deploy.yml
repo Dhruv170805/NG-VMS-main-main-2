@@ -19,7 +19,7 @@ jobs:
         image: redis:7-alpine
         ports:
           - 6379:6379
-    
+
     steps:
     - uses: actions/checkout@v4
 
@@ -51,6 +51,9 @@ jobs:
       run: |
         cd frontend
         npm run build
+      env:
+        NEXT_PUBLIC_API_URL: /api/v1
+        NEXT_PUBLIC_SOCKET_URL: /
 
     - name: Run Backend Tests
       run: |
@@ -60,12 +63,29 @@ jobs:
         MONGODB_URI: mongodb://localhost:27017/ng-vms-test-visitor
         REDIS_URL: redis://localhost:6379
 
+    - name: Install wait-on
+      run: npm install -g wait-on
+
     - name: Start Backend in Background
       run: |
         cd backend
-        PORT=5000 MONGODB_URI=mongodb://localhost:27017/ngvms REDIS_URL=redis://localhost:6379 JWT_SECRET=test-jwt-secret-key-123456 LICENSE_SECRET=test-license-secret-key-123456 ENCRYPTION_KEY=test-encryption-key-123456 SKIP_HW_LOCK=true DISABLE_RATE_LIMITS=true npm run dev &
-        npx wait-on http://localhost:5000/api/v1/system/health --timeout 60000
+        PORT=5000 \
+        MONGODB_URI=mongodb://localhost:27017/ngvms \
+        REDIS_URL=redis://localhost:6379 \
+        JWT_SECRET=test-jwt-secret-key-123456 \
+        LICENSE_SECRET=test-license-secret-key-123456 \
+        ENCRYPTION_KEY=test-encryption-key-123456 \
+        SKIP_HW_LOCK=true \
+        DISABLE_RATE_LIMITS=true \
+        npm run dev &
+        wait-on http://localhost:5000/health --timeout 60000
+
+    - name: Seed Database
+      run: |
+        cd backend
         MONGODB_URI=mongodb://localhost:27017/ngvms npx ts-node src/seed.ts
+      env:
+        MONGODB_URI: mongodb://localhost:27017/ngvms
 
     - name: Install Playwright Browsers
       run: |
@@ -76,20 +96,28 @@ jobs:
       run: |
         cd frontend
         npx playwright test
-        
+      env:
+        PLAYWRIGHT_BASE_URL: http://localhost:3000
+        NEXT_PUBLIC_API_URL: http://localhost:5000/api/v1
+        NEXT_PUBLIC_SOCKET_URL: http://localhost:5000
+
   docker-build:
     needs: build-and-test
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-    
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
     # Required permissions to push to GitHub Container Registry
     permissions:
       contents: read
       packages: write
 
+    outputs:
+      backend_image: ${{ steps.lowercase.outputs.backend_image }}
+      frontend_image: ${{ steps.lowercase.outputs.frontend_image }}
+
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
 
@@ -99,7 +127,7 @@ jobs:
         registry: ghcr.io
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
-      
+
     - name: Lowercase image names
       id: lowercase
       run: |
@@ -122,7 +150,9 @@ jobs:
         push: true
         tags: ${{ steps.meta-backend.outputs.tags }}
         labels: ${{ steps.meta-backend.outputs.labels }}
-        
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
     - name: Extract metadata (tags, labels) for Frontend
       id: meta-frontend
       uses: docker/metadata-action@v5
@@ -142,3 +172,5 @@ jobs:
         build-args: |
           NEXT_PUBLIC_API_URL=/api/v1
           NEXT_PUBLIC_SOCKET_URL=/
+        cache-from: type=gha
+        cache-to: type=gha,mode=max

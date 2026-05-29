@@ -15,12 +15,12 @@ services:
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?MONGO_ROOT_PASSWORD required}
     healthcheck:
       test: |
-        echo "try { rs.status() } catch(e) { rs.initiate({_id:'rs0',members:[{_id:0,host:'mongo:27017'}]}) }" | \
-        mongosh --quiet -u ${MONGO_ROOT_USER:-ngvms_root} -p ${MONGO_ROOT_PASSWORD} --authenticationDatabase admin
+        echo "try { rs.status() } catch(e) { rs.initiate({_id:'rs0',members:[{_id:0,host:'mongo:27017'}]}) }" |
+        mongosh --quiet -u "${MONGO_ROOT_USER:-ngvms_root}" -p "${MONGO_ROOT_PASSWORD}" --authenticationDatabase admin
       interval: 15s
       timeout: 10s
       retries: 10
-      start_period: 30s
+      start_period: 60s
     deploy:
       resources:
         limits: { memory: 2g }
@@ -87,7 +87,7 @@ services:
 
   # ── Backend API ───────────────────────────────────────────────────────────
   backend:
-    image: ngvms-backend:latest
+    image: ghcr.io/${GITHUB_REPOSITORY:-dhruv170805/ng-vms-main-main-2}/ngvms-backend:latest
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -100,11 +100,12 @@ services:
       PORT: "5000"
       MONGODB_URI: mongodb://${MONGO_ROOT_USER:-ngvms_root}:${MONGO_ROOT_PASSWORD}@mongo:27017/ngvms?replicaSet=rs0&authSource=admin
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD required}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET required}
       MINIO_ENDPOINT: minio
       MINIO_PORT: "9000"
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
-      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:?MINIO_SECRET_KEY required}
       MINIO_BUCKET: ${MINIO_BUCKET:-ngvms-assets}
       MINIO_USE_SSL: "false"
       SMTP_HOST: smtp_relay
@@ -115,7 +116,7 @@ services:
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
       EXTRA_ALLOWED_ORIGINS: ${EXTRA_ALLOWED_ORIGINS:-}
       SERVER_HOST: ${DOMAIN_NAME:-localhost}
-      ENCRYPTION_KEY: ${ENCRYPTION_KEY:?ENCRYPTION_KEY required}  # BUG FIX: was hardcoded in encryption.ts
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:?ENCRYPTION_KEY required}
     volumes:
       - .:/app/shared:ro
     depends_on:
@@ -134,7 +135,10 @@ services:
 
   # ── Frontend ──────────────────────────────────────────────────────────────
   frontend:
-    image: ghcr.io/${GITHUB_REPOSITORY:-enterprise}/ngvms-frontend:latest
+    image: ghcr.io/${GITHUB_REPOSITORY:-dhruv170805/ng-vms-main-main-2}/ngvms-frontend:latest
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
     container_name: ngvms_frontend
     restart: unless-stopped
     networks: [ngvms_network]
@@ -234,15 +238,6 @@ networks:
 
 volumes:
   mongo_data:
-  mongo_config:
-  redis_data:
-  minio_data:
-  caddy_data:
-  caddy_config:
-  prometheus_data:
-  grafana_data:
-  alertmanager_data:
-ata:
   mongo_config:
   redis_data:
   minio_data:

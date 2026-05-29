@@ -98,7 +98,12 @@ else {
   Write-Warn "License file (*_NGS.lic) NOT found - client must supply their own"
 }
 
-Move-Item -Path $ImagesTar -Destination "$BundleDir/$ImagesTar" -Force
+if (Test-Path $ImagesTar) {
+  Move-Item -Path $ImagesTar -Destination "$BundleDir/$ImagesTar" -Force
+  Write-Info "Included offline images tarball ($ImagesTar)"
+} else {
+  Write-Warn "Offline images tarball ($ImagesTar) not found. Client will need to pull from GHCR."
+}
 
 Write-Info "Packing -> $Output..."
 if (Test-Path $Output) {
