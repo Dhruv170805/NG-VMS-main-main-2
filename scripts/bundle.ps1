@@ -52,7 +52,22 @@ catch {
   Write-ErrorAndExit "Docker Compose v2 not found. Install Docker Desktop or Docker Compose v2."
 }
 
-Write-Info "Skipping local Docker build. Images are now built immutably via GitHub Actions."
+Write-Info "Building Docker images locally (this may take a few minutes)..."
+docker compose -f docker-compose.prod.yml build
+
+$Repo = if ($env:GITHUB_REPOSITORY) { $env:GITHUB_REPOSITORY } else { "dhruv170805/ng-vms-main-main-2" }
+$Registry = "ghcr.io/$($Repo.ToLower())"
+
+Write-Info "Ensuring third-party images are available..."
+docker pull mongo:6 | Out-Null
+docker pull redis:7-alpine | Out-Null
+docker pull minio/minio:latest | Out-Null
+docker pull caddy:2-alpine | Out-Null
+docker pull maildev/maildev:latest | Out-Null
+
+Write-Info "Saving Docker images to $ImagesTar (may take a few minutes)..."
+docker save "$Registry/ngvms-backend:latest" "$Registry/ngvms-frontend:latest" "mongo:6" "redis:7-alpine" "minio/minio:latest" "caddy:2-alpine" "maildev/maildev:latest" -o $ImagesTar
+Write-Info "Images exported: $(Format-Bytes (Get-Item $ImagesTar).Length)"
 
 Write-Info "Assembling bundle..."
 if (Test-Path $BundleDir) {
@@ -102,7 +117,7 @@ if (Test-Path $ImagesTar) {
   Move-Item -Path $ImagesTar -Destination "$BundleDir/$ImagesTar" -Force
   Write-Info "Included offline images tarball ($ImagesTar)"
 } else {
-  Write-Warn "Offline images tarball ($ImagesTar) not found. Client will need to pull from GHCR."
+  Write-ErrorAndExit "Failed to create images tarball ($ImagesTar)."
 }
 
 Write-Info "Packing -> $Output..."

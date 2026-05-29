@@ -27,28 +27,30 @@ command -v docker  &>/dev/null || die "Docker not found"
 docker compose version &>/dev/null || die "Docker Compose v2 not found"
 command -v tar     &>/dev/null || die "tar not found"
 
-log "Skipping local Docker build. Images are built immutably via GitHub Actions CI/CD."
+log "Building Docker images locally (this may take a few minutes)..."
+docker compose -f docker-compose.prod.yml build
 
-# ── Optional: export pre-pulled GHCR images for offline bundles ───────────────
-if [ "${EXPORT_IMAGES:-false}" = "true" ]; then
-  log "Pulling images from GHCR for offline export..."
-  REPO="${GITHUB_REPOSITORY:-dhruv170805/ng-vms-main-main-2}"
-  REGISTRY="ghcr.io/$(echo "${REPO}" | tr '[:upper:]' '[:lower:]')"
-  docker pull "${REGISTRY}/ngvms-backend:latest"
-  docker pull "${REGISTRY}/ngvms-frontend:latest"
+log "Saving Docker images to ${IMAGES_TAR} (may take a few minutes)..."
+REPO="${GITHUB_REPOSITORY:-dhruv170805/ng-vms-main-main-2}"
+REGISTRY="ghcr.io/$(echo "${REPO}" | tr '[:upper:]' '[:lower:]')"
 
-  log "Exporting Docker images → ${IMAGES_TAR} (may take a few minutes)..."
-  docker save \
-    "${REGISTRY}/ngvms-backend:latest" \
-    "${REGISTRY}/ngvms-frontend:latest" \
-    "mongo:6" \
-    "redis:7-alpine" \
-    "minio/minio:latest" \
-    "caddy:2-alpine" \
-    "maildev/maildev:latest" \
-    -o "${IMAGES_TAR}"
-  log "Images exported: $(du -h "${IMAGES_TAR}" | cut -f1)"
-fi
+# Ensure third-party images are available
+docker pull mongo:6
+docker pull redis:7-alpine
+docker pull minio/minio:latest
+docker pull caddy:2-alpine
+docker pull maildev/maildev:latest
+
+docker save \
+  "${REGISTRY}/ngvms-backend:latest" \
+  "${REGISTRY}/ngvms-frontend:latest" \
+  "mongo:6" \
+  "redis:7-alpine" \
+  "minio/minio:latest" \
+  "caddy:2-alpine" \
+  "maildev/maildev:latest" \
+  -o "${IMAGES_TAR}"
+log "Images exported: $(du -h "${IMAGES_TAR}" | cut -f1)"
 
 # ── Assemble bundle directory ───────────────────────────────────────────────
 log "Assembling bundle..."
@@ -116,6 +118,5 @@ echo "    tar -xzf ${OUTPUT}"
 echo "    cd ${BUNDLE_DIR}"
 echo "    chmod +x install.sh && sudo ./install.sh"
 echo ""
-echo "  For offline image bundle (includes Docker images):"
-echo "    EXPORT_IMAGES=true ./bundle.sh [version]"
+echo "  The bundle contains all required Docker images for offline installation."
 echo "=================================================="
