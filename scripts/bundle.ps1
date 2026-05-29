@@ -52,6 +52,13 @@ catch {
   Write-ErrorAndExit "Docker Compose v2 not found. Install Docker Desktop or Docker Compose v2."
 }
 
+# Dynamically copy any license files
+Write-Host "Copying license files..."
+Get-ChildItem -Filter "*_NGS.lic" | ForEach-Object {
+    Copy-Item $_.FullName -Destination $BundleDir
+}
+
+# 3. Pull latest images to ensure we have them locally (this may take a few minutes)..."
 Write-Info "Building Docker images locally (this may take a few minutes)..."
 docker compose -f docker-compose.prod.yml build
 
@@ -89,6 +96,7 @@ $filesToCopy = @{
   'scripts/healthcheck.sh'      = "$BundleDir/healthcheck.sh"
   'scripts/install.ps1'         = "$BundleDir/install.ps1"
   'scripts/launcher.bat'        = "$BundleDir/launcher.bat"
+  'backend/public.pem'          = "$BundleDir/public.pem"
   'README.md'                   = "$BundleDir/README.md"
   'monitoring/prometheus.yml'   = "$BundleDir/monitoring/prometheus.yml"
   'monitoring/alert.rules.yml'  = "$BundleDir/monitoring/alert.rules.yml"
