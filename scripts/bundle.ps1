@@ -52,28 +52,42 @@ catch {
   Write-ErrorAndExit "Docker Compose v2 not found. Install Docker Desktop or Docker Compose v2."
 }
 
-# Dynamically copy any license files
-Write-Host "Copying license files..."
-Get-ChildItem -Filter "*_NGS.lic" | ForEach-Object {
-    Copy-Item $_.FullName -Destination $BundleDir
-}
-
-# 3. Pull latest images to ensure we have them locally (this may take a few minutes)..."
+# 3. Build latest images locally
 Write-Info "Building Docker images locally (this may take a few minutes)..."
-docker compose -f docker-compose.prod.yml build
+
+# Set dummy variables for build-time interpolation requirements
+$env:MONGO_ROOT_PASSWORD = "dummy_password"
+$env:REDIS_PASSWORD = "dummy_password"
+$env:MINIO_SECRET_KEY = "dummy_password"
+$env:JWT_SECRET = "dummy_password"
+$env:LICENSE_SECRET = "dummy_password"
+$env:ENCRYPTION_KEY = "dummy_password"
+$env:GRAFANA_PASSWORD = "dummy_password"
+
+docker compose -f docker-compose.prod.yml build --no-cache
 
 $Repo = if ($env:GITHUB_REPOSITORY) { $env:GITHUB_REPOSITORY } else { "dhruv170805/ng-vms-main-main-2" }
 $Registry = "ghcr.io/$($Repo.ToLower())"
 
 Write-Info "Ensuring third-party images are available..."
-docker pull mongo:6 | Out-Null
-docker pull redis:7-alpine | Out-Null
-docker pull minio/minio:latest | Out-Null
-docker pull caddy:2-alpine | Out-Null
-docker pull maildev/maildev:latest | Out-Null
+docker pull mongo:6
+docker pull redis:7-alpine
+docker pull minio/minio:latest
+docker pull caddy:2-alpine
+docker pull maildev/maildev:latest
 
 Write-Info "Saving Docker images to $ImagesTar (may take a few minutes)..."
-docker save "$Registry/ngvms-backend:latest" "$Registry/ngvms-frontend:latest" "mongo:6" "redis:7-alpine" "minio/minio:latest" "caddy:2-alpine" "maildev/maildev:latest" -o $ImagesTar
+# Save both the locally built images (with GHCR tags) and third-party ones
+docker save `
+  "$Registry/ngvms-backend:latest" `
+  "$Registry/ngvms-frontend:latest" `
+  "mongo:6" `
+  "redis:7-alpine" `
+  "minio/minio:latest" `
+  "caddy:2-alpine" `
+  "maildev/maildev:latest" `
+  -o $ImagesTar
+
 Write-Info "Images exported: $(Format-Bytes (Get-Item $ImagesTar).Length)"
 
 Write-Info "Assembling bundle..."
@@ -96,7 +110,6 @@ $filesToCopy = @{
   'scripts/healthcheck.sh'      = "$BundleDir/healthcheck.sh"
   'scripts/install.ps1'         = "$BundleDir/install.ps1"
   'scripts/launcher.bat'        = "$BundleDir/launcher.bat"
-  'backend/public.pem'          = "$BundleDir/public.pem"
   'README.md'                   = "$BundleDir/README.md"
   'monitoring/prometheus.yml'   = "$BundleDir/monitoring/prometheus.yml"
   'monitoring/alert.rules.yml'  = "$BundleDir/monitoring/alert.rules.yml"
