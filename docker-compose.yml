@@ -79,8 +79,6 @@ services:
   mongo:
     image: mongo:6
     container_name: ngvms_mongo
-    ports:
-      - "27017:27017"
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:-admin}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-NGVmsEnterpriseDB2026!}

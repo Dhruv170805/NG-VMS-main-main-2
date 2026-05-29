@@ -329,7 +329,8 @@ export class VisitorService {
       .populate('hostId', 'name email department')
       .sort({ updatedAt: -1 })
       .skip(skip)
-      .limit(safeLimit);
+      .limit(safeLimit)
+      .lean();
 
     const total = await Visitor.countDocuments(query);
 

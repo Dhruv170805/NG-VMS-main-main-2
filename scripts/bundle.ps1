@@ -52,41 +52,7 @@ catch {
   Write-ErrorAndExit "Docker Compose v2 not found. Install Docker Desktop or Docker Compose v2."
 }
 
-Write-Info "Building Docker images (prod compose)..."
-$env:REDIS_PASSWORD = 'dummy_redis_pass'
-$env:MONGO_ROOT_PASSWORD = 'dummy_mongo_pass'
-$env:MINIO_SECRET_KEY = 'dummy_minio_secret'
-$env:JWT_SECRET = 'dummy_jwt_secret'
-$env:LICENSE_SECRET = 'dummy_license_secret'
-$env:ENCRYPTION_KEY = 'dummy_enc_key'
-$env:GRAFANA_PASSWORD = 'dummy_grafana_pass'
-
-try {
-  docker compose -f docker-compose.prod.yml build --no-cache `
-    --build-arg NEXT_PUBLIC_API_URL=/api/v1 `
-    --build-arg NEXT_PUBLIC_SOCKET_URL=/
-}
-finally {
-  Remove-Item Env:REDIS_PASSWORD, Env:MONGO_ROOT_PASSWORD, Env:MINIO_SECRET_KEY, Env:JWT_SECRET, Env:LICENSE_SECRET, Env:ENCRYPTION_KEY, Env:GRAFANA_PASSWORD -ErrorAction SilentlyContinue
-}
-
-Write-Info "Tagging images..."
-docker tag ngvms-backend:latest "ngvms-backend:$Version"
-docker tag ngvms-frontend:latest "ngvms-frontend:$Version"
-
-Write-Info "Exporting Docker images -> $ImagesTar (may take a few minutes)..."
-docker save `
-  "ngvms-backend:latest" `
-  "ngvms-frontend:latest" `
-  "mongo:6" `
-  "redis:7-alpine" `
-  "minio/minio:latest" `
-  "caddy:2-alpine" `
-  "maildev/maildev:latest" `
-  -o $ImagesTar
-
-$ImageSize = (Get-Item $ImagesTar).Length
-Write-Info "Images exported: $(Format-Bytes $ImageSize)"
+Write-Info "Skipping local Docker build. Images are now built immutably via GitHub Actions."
 
 Write-Info "Assembling bundle..."
 if (Test-Path $BundleDir) {

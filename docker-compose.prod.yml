@@ -134,14 +134,7 @@ services:
 
   # ── Frontend ──────────────────────────────────────────────────────────────
   frontend:
-    image: ngvms-frontend:latest
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-      target: runtime
-      args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-/api/v1}
-        NEXT_PUBLIC_SOCKET_URL: ${NEXT_PUBLIC_SOCKET_URL:-/}
+    image: ghcr.io/${GITHUB_REPOSITORY:-enterprise}/ngvms-frontend:latest
     container_name: ngvms_frontend
     restart: unless-stopped
     networks: [ngvms_network]
@@ -241,6 +234,15 @@ networks:
 
 volumes:
   mongo_data:
+  mongo_config:
+  redis_data:
+  minio_data:
+  caddy_data:
+  caddy_config:
+  prometheus_data:
+  grafana_data:
+  alertmanager_data:
+ata:
   mongo_config:
   redis_data:
   minio_data:

@@ -67,28 +67,77 @@ export const overstayWorker = new Worker(
   { connection: redisConnection }
 );
 
+import * as XLSX from '@e965/xlsx';
+import { AnalyticsService } from '../modules/analytics/analytics.service';
+import { SystemService } from '../modules/system/system.service';
+
 // 2. Report Worker
 export const reportWorker = new Worker(
   'report-generation',
   async (job: Job) => {
-    const { tenantId, dateStr } = job.data;
-    logger.info({ tenantId, dateStr }, 'Generating visitor report in background');
+    const { tenantId, dateStr, buffer } = job.data;
+    logger.info({ tenantId, dateStr, type: job.name }, 'Processing report/import background job');
 
     try {
-      const visitors = await Visitor.find({
-        tenantId,
-        createdAt: {
-          $gte: new Date(`${dateStr}T00:00:00.000Z`),
-          $lte: new Date(`${dateStr}T23:59:59.999Z`),
-        },
-      });
+      if (job.name === 'export-purpose-report') {
+        const distribution = await AnalyticsService.getPurposeDistribution(tenantId);
 
-      // Simulate CSV generation and processing
-      const recordCount = visitors.length;
-      logger.info({ tenantId, recordCount }, 'Report generated successfully');
-      return { success: true, recordCount };
+        const data = distribution.map((item: any) => ({
+          'Purpose of Visit': item._id || 'Not Specified',
+          'Total Visitors': item.count
+        }));
+
+        const worksheet = XLSX.utils.json_to_sheet(data);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Purpose Distribution');
+
+        const visitors = await Visitor.find({ tenantId }, 'name email phone company purpose hostName createdAt status').sort({ purpose: 1 }).lean();
+        const visitorData = visitors.map(v => ({
+          'Purpose': v.purpose,
+          'Visitor Name': v.name,
+          'Email': v.email,
+          'Phone': v.phone,
+          'Company': v.company || 'N/A',
+          'Host': v.hostName,
+          'Status': v.status,
+          'Date': new Date(v.createdAt).toLocaleDateString()
+        }));
+
+        const visitorWorksheet = XLSX.utils.json_to_sheet(visitorData);
+        XLSX.utils.book_append_sheet(workbook, visitorWorksheet, 'Detailed Purpose Log');
+
+        const xlsxBuffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+        
+        // In a real app, we would upload this buffer to MinIO and return the URL
+        // or notify the user via socket.io that the report is ready.
+        logger.info({ tenantId }, 'Purpose report generated successfully');
+        return { success: true, bufferLength: xlsxBuffer.length };
+      }
+
+      if (job.name === 'import-hosts') {
+        const fileBuffer = Buffer.from(buffer, 'base64');
+        const count = await SystemService.uploadHosts(fileBuffer, tenantId);
+        logger.info({ tenantId, count }, 'Host import completed');
+        return { success: true, count };
+      }
+
+      // Default CSV report logic
+      if (job.name !== 'export-purpose-report' && job.name !== 'import-hosts') {
+        const visitors = await Visitor.find({
+          tenantId,
+          createdAt: {
+            $gte: new Date(`${dateStr}T00:00:00.000Z`),
+            $lte: new Date(`${dateStr}T23:59:59.999Z`),
+          },
+        });
+
+        // Simulate CSV generation and processing
+        const recordCount = visitors.length;
+        logger.info({ tenantId, recordCount }, 'Report generated successfully');
+        return { success: true, recordCount };
+      }
     } catch (error: any) {
-      logger.error({ err: error.message, tenantId }, 'Error generating report');
+      logger.error({ err: error.message, tenantId }, 'Error processing background job');
       throw error;
     }
   },
@@ -128,32 +177,46 @@ emailWorker.on('failed', (job, err) => {
   logger.error({ jobId: job?.id, err: err.message }, 'Email worker job failed');
 });
 
+import { AadhaarService } from '../modules/aadhaar/aadhaar.service';
+
 // 4. Image Optimization Worker
 export const imageWorker = new Worker(
   'image-optimization',
   async (job: Job) => {
-    const { visitorId, photoUrl, idProofPhotoUrl, idProofPreviewImage } = job.data;
-    logger.info({ visitorId, jobId: job.id }, 'Running background image optimization job');
+    logger.info({ jobId: job.id, type: job.name }, 'Running background image optimization/processing job');
 
     try {
-      const updateData: any = {};
-      if (photoUrl) {
-        updateData.photoUrl = await optimizeImage(photoUrl);
-      }
-      if (idProofPhotoUrl) {
-        updateData.idProofPhotoUrl = await optimizeImage(idProofPhotoUrl);
-      }
-      if (idProofPreviewImage) {
-        const optimizedImage = await optimizeImage(idProofPreviewImage);
-        updateData.encryptedIdProofPreview = encrypt(optimizedImage);
+      if (job.name === 'parse-aadhaar') {
+        const { fileData, password, tenantId } = job.data;
+        const fileBuffer = Buffer.from(fileData, 'base64');
+        const result = await AadhaarService.processAadhaar(fileBuffer, password, tenantId);
+        logger.info({ tenantId, jobId: job.id }, 'Aadhaar processing completed');
+        // In a real system, you'd send an io.to(socketId).emit() to return the result to the UI
+        return result;
       }
 
-      if (Object.keys(updateData).length > 0) {
-        await Visitor.findByIdAndUpdate(visitorId, updateData);
-        logger.info({ visitorId }, 'Successfully updated visitor with optimized images');
+      // Default behavior
+      if (job.name !== 'parse-aadhaar') {
+        const { visitorId, photoUrl, idProofPhotoUrl, idProofPreviewImage } = job.data;
+        const updateData: any = {};
+        if (photoUrl) {
+          updateData.photoUrl = await optimizeImage(photoUrl);
+        }
+        if (idProofPhotoUrl) {
+          updateData.idProofPhotoUrl = await optimizeImage(idProofPhotoUrl);
+        }
+        if (idProofPreviewImage) {
+          const optimizedImage = await optimizeImage(idProofPreviewImage);
+          updateData.encryptedIdProofPreview = encrypt(optimizedImage);
+        }
+
+        if (Object.keys(updateData).length > 0) {
+          await Visitor.findByIdAndUpdate(visitorId, updateData);
+          logger.info({ visitorId }, 'Successfully updated visitor with optimized images');
+        }
       }
     } catch (error: any) {
-      logger.error({ err: error.message, visitorId }, 'Error optimizing images in background');
+      logger.error({ err: error.message }, 'Error in image worker background job');
       throw error;
     }
   },

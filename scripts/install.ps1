@@ -140,8 +140,11 @@ try {
 Write-Host "[5/7] Launching Cinematic Stack..." -ForegroundColor White
 
 if (Test-Path ngvms-images.tar) {
-    Write-Host "[INFO] Found pre-built images. Loading them into Docker..." -ForegroundColor Gray
+    Write-Host "[INFO] Found pre-built images in tarball. Loading them into Docker..." -ForegroundColor Gray
     docker load -i ngvms-images.tar
+} else {
+    Write-Host "[INFO] Tarball not found. Pulling immutable images from GHCR..." -ForegroundColor Gray
+    docker compose pull
 }
 
 docker compose up -d

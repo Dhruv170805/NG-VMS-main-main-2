@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { AuthRequest, TenantRequest } from '../types/requests';
 
-function isAllowedCsrfOrigin(originOrReferer: string | undefined): boolean {
+function isAllowedCsrfOrigin(originOrReferer: string | undefined, req: Request): boolean {
   if (!originOrReferer) return false;
   try {
     const url = new URL(originOrReferer);
@@ -30,6 +30,16 @@ function isAllowedCsrfOrigin(originOrReferer: string | undefined): boolean {
     if (hostname === baseDomain || hostname.endsWith('.' + baseDomain)) {
       return true;
     }
+    
+    // Dynamic Origin Detection: Allow if it matches the requested server's hostname or LAN IP
+    if (hostname === req.hostname || hostname === process.env.SERVER_HOST || hostname === '127.0.0.1' || hostname === 'localhost') {
+      return true;
+    }
+    const isIp = /^\d{1,3}(?:\.\d{1,3}){3}$/.test(hostname);
+    const isLocal = hostname.endsWith('.local') || hostname.endsWith('.lan') || hostname.endsWith('.home') || hostname.endsWith('.internal');
+    if (isIp || isLocal || process.env.DEPLYOMENT_MODE === 'ON_PREM') {
+      return true;
+    }
   } catch (err) {
     return false;
   }
@@ -46,7 +56,7 @@ export const protect = (req: Request, res: Response, next: NextFunction): void =
     const isStateChanging = ['POST', 'PUT', 'DELETE', 'PATCH'].includes(method);
     if (isStateChanging) {
       const origin = (req.headers.origin as string) || (req.headers.referer as string);
-      if (!isAllowedCsrfOrigin(origin)) {
+      if (!isAllowedCsrfOrigin(origin, req)) {
         res.status(403).json({ message: 'CSRF validation failed: invalid or missing origin' });
         return;
       }

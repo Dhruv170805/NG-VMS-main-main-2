@@ -56,6 +56,7 @@ import { errorHandler } from './middleware/errorHandler';
 import { ApolloServer } from '@apollo/server';
 import { expressMiddleware } from '@as-integrations/express5';
 import { typeDefs, resolvers } from './graphql/schema';
+import depthLimit from 'graphql-depth-limit';
 
 export const app = express();
 app.set('trust proxy', 1);
@@ -241,6 +242,7 @@ app.use('/api/v1/visitors/lookup', lookupLimiter);
 const apolloServer = new ApolloServer({
   typeDefs,
   resolvers,
+  validationRules: [depthLimit(5)], // Prevent deeply nested queries
 });
 
 const startApollo = async () => {

@@ -75,40 +75,13 @@ export const getStatusDistribution: RequestHandler = async (req, res) => {
   }
 };
 
+import { reportQueue } from '../../queues/queueSetup';
+
 export const exportPurposeReport: RequestHandler = async (req, res) => {
   const { tenantId } = req as TenantRequest;
   try {
-    const distribution = await AnalyticsService.getPurposeDistribution(tenantId!);
-
-    const data = distribution.map(item => ({
-      'Purpose of Visit': item._id || 'Not Specified',
-      'Total Visitors': item.count
-    }));
-
-    const worksheet = XLSX.utils.json_to_sheet(data);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Purpose Distribution');
-
-    const visitors = await Visitor.find({ tenantId: tenantId! }, 'name email phone company purpose hostName createdAt status').sort({ purpose: 1 });
-    const visitorData = visitors.map(v => ({
-      'Purpose': v.purpose,
-      'Visitor Name': v.name,
-      'Email': v.email,
-      'Phone': v.phone,
-      'Company': v.company || 'N/A',
-      'Host': v.hostName,
-      'Status': v.status,
-      'Date': new Date(v.createdAt).toLocaleDateString()
-    }));
-
-    const visitorWorksheet = XLSX.utils.json_to_sheet(visitorData);
-    XLSX.utils.book_append_sheet(workbook, visitorWorksheet, 'Detailed Purpose Log');
-
-    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
-
-    res.setHeader('Content-Disposition', 'attachment; filename=purpose_analytics_report.xlsx');
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.send(buffer);
+    const job = await reportQueue.add('export-purpose-report', { tenantId });
+    res.status(202).json({ success: true, message: 'Report generation started', jobId: job.id });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }

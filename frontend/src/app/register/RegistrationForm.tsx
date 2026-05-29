@@ -66,36 +66,25 @@ const VisitorRegistration: React.FC = () => {
     else setGreeting('Good Evening');
   }, []);
 
-  // Initialize face-api on Main Thread (God Level Fix)
-  useEffect(() => {
-    const loadModels = async () => {
-      try {
-        const faceapi = await import('@vladmandic/face-api');
-        const modelUrl = window.location.origin + '/models';
-        
-        // Explicitly set backend to prevent WASM streaming compile errors in dev/Playwright
-        try {
-          // @ts-ignore - setBackend exists on runtime tfjs but may not be in type definitions
-          await faceapi.tf.setBackend('webgl');
-        } catch {
-          // @ts-ignore
-          await faceapi.tf.setBackend('cpu');
-        }
-        // @ts-ignore - ready exists on runtime tfjs but may not be in type definitions
-        await faceapi.tf.ready();
+  const workerRef = useRef<Worker | null>(null);
 
-        await Promise.all([
-          faceapi.nets.tinyFaceDetector.loadFromUri(modelUrl),
-          faceapi.nets.faceLandmark68TinyNet.loadFromUri(modelUrl),
-          faceapi.nets.faceExpressionNet.loadFromUri(modelUrl)
-        ]);
+  // Initialize WebWorker for Face Detection to prevent UI freezing
+  useEffect(() => {
+    workerRef.current = new Worker(new URL('./faceWorker.ts', import.meta.url));
+    workerRef.current.onmessage = (e) => {
+      const { type, faceDetected } = e.data;
+      if (type === 'INIT_SUCCESS') {
         setModelsLoaded(true);
-        console.log('[FaceAPI] Models Loaded Successfully');
-      } catch (err) {
-        console.error('[FaceAPI] Model Loading Failed:', err);
+        console.log('[FaceWorker] Models Loaded Successfully');
+      } else if (type === 'DETECT_RESULT') {
+        setFaceDetected(faceDetected);
       }
     };
-    loadModels();
+    workerRef.current.postMessage({ type: 'INIT', payload: { origin: window.location.origin } });
+
+    return () => {
+      workerRef.current?.terminate();
+    };
   }, []);
 
   useEffect(() => {
@@ -175,27 +164,32 @@ const VisitorRegistration: React.FC = () => {
     });
   };
 
-  // Main Thread Detection Loop (Optimized with throttle to prevent blocking)
+  // WebWorker Detection Loop
   useEffect(() => {
-    let isDetecting = false;
     let timerId: NodeJS.Timeout;
 
-    const detect = async () => {
-      if (!isDetecting && modelsLoaded && webcamRef.current?.video?.readyState === 4) {
-        isDetecting = true;
-        try {
-          const faceapi = await import('@vladmandic/face-api');
-          const detection = await faceapi.detectSingleFace(
-            webcamRef.current.video,
-            new faceapi.TinyFaceDetectorOptions()
-          );
-          setFaceDetected(!!detection);
-        } catch (err) {
-          console.error('[FaceAPI] Detection Error:', err);
+    const detect = () => {
+      const video = webcamRef.current?.video;
+      if (modelsLoaded && video && video.readyState === 4 && workerRef.current) {
+        // Draw to a hidden canvas to extract ImageData
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          workerRef.current.postMessage({ 
+            type: 'DETECT', 
+            payload: { 
+              width: imageData.width, 
+              height: imageData.height, 
+              data: imageData.data.buffer 
+            } 
+          }, [imageData.data.buffer]);
         }
-        isDetecting = false;
       }
-      timerId = setTimeout(detect, 500); // Throttle to 2 FPS to save CPU
+      timerId = setTimeout(detect, 500);
     };
 
     if (modelsLoaded) {

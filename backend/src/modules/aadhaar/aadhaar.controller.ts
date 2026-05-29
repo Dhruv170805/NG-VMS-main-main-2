@@ -2,6 +2,7 @@ import { Response, RequestHandler } from 'express';
 import { TenantRequest } from '../../types/requests';
 import { AadhaarService } from './aadhaar.service';
 import fs from 'fs';
+import { imageQueue } from '../../queues/queueSetup';
 
 export const processAadhaar: RequestHandler = async (req, res) => {
   const { file, body, tenantId } = req as TenantRequest;
@@ -11,17 +12,18 @@ export const processAadhaar: RequestHandler = async (req, res) => {
     }
 
     const fileBuffer = fs.readFileSync(file.path);
-
-    const result = await AadhaarService.processAadhaar(
-      fileBuffer, 
-      body.password, 
-      tenantId!
-    );
+    const base64Data = fileBuffer.toString('base64');
+    
+    const job = await imageQueue.add('parse-aadhaar', {
+      fileData: base64Data,
+      password: body.password,
+      tenantId
+    });
 
     // Delete the temporary file from disk to prevent storage leaks
     fs.unlinkSync(file.path);
     
-    res.json(result);
+    res.status(202).json({ success: true, message: 'Aadhaar processing started', jobId: job.id });
   } catch (error: any) {
     console.error('[AADHAAR] Error:', error);
     const isLicenseError = error.message.includes('license');

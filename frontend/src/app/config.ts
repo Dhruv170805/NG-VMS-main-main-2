@@ -72,7 +72,9 @@ const getApiUrl = (): string => {
 
   // ── 3. Local development (any port on localhost or LAN) ────────────────────
   if (isLocalHostname(hostname)) {
-    return `http://${hostname}:${BACKEND_PORT}${API_PATH}`;
+    if (window.location.port === '3000' || window.location.port === '8080' || window.location.port === '5173') {
+      return `http://${hostname}:${BACKEND_PORT}${API_PATH}`;
+    }
   }
 
   // ── 4. Production / LAN / IIS deployment ──────────────────────────────────

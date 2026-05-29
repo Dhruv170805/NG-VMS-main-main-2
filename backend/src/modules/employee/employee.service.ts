@@ -18,7 +18,7 @@ export class EmployeeService {
         ];
       }
 
-      return await Employee.find(query).select('-password').sort({ createdAt: -1 });
+      return await Employee.find(query).select('-password').sort({ createdAt: -1 }).lean();
     });
   }
 

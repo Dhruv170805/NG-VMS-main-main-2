@@ -49,14 +49,8 @@ services:
       - ngvms_network
 
   frontend:
-    image: ngvms-frontend:latest
+    image: ghcr.io/${GITHUB_REPOSITORY:-enterprise}/ngvms-frontend:latest
     container_name: ngvms_frontend
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-      args:
-        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-/api/v1}
-        - NEXT_PUBLIC_SOCKET_URL=${NEXT_PUBLIC_SOCKET_URL:-/}
     restart: unless-stopped
     ports:
       - "127.0.0.1:3000:3000" # Exposed for IIS Proxy
@@ -141,6 +135,19 @@ services:
 
   smtp_relay:
     image: maildev/maildev:latest
+    container_name: ngvms_smtp
+    restart: unless-stopped
+    networks: [ngvms_network]
+
+networks:
+  ngvms_network:
+    driver: bridge
+
+volumes:
+  mongo_data:
+  minio_data:
+  redis_data:
+aildev:latest
     container_name: ngvms_smtp
     restart: unless-stopped
     networks: [ngvms_network]

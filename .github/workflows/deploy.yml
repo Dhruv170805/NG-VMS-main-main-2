@@ -87,17 +87,47 @@ jobs:
     
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
+
+    - name: Login to GitHub Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
       
-    - name: Build Backend Image
+    - name: Extract metadata (tags, labels) for Backend
+      id: meta-backend
+      uses: docker/metadata-action@v5
+      with:
+        images: ghcr.io/${{ github.repository }}/ngvms-backend
+        tags: |
+          type=raw,value=latest
+          type=sha,prefix=,format=short
+
+    - name: Build and Push Backend Image
       uses: docker/build-push-action@v6
       with:
         context: ./backend
-        push: false # Set to true when registry is configured
-        tags: ngvms-backend:latest
+        push: true
+        tags: ${{ steps.meta-backend.outputs.tags }}
+        labels: ${{ steps.meta-backend.outputs.labels }}
         
-    - name: Build Frontend Image
+    - name: Extract metadata (tags, labels) for Frontend
+      id: meta-frontend
+      uses: docker/metadata-action@v5
+      with:
+        images: ghcr.io/${{ github.repository }}/ngvms-frontend
+        tags: |
+          type=raw,value=latest
+          type=sha,prefix=,format=short
+
+    - name: Build and Push Frontend Image
       uses: docker/build-push-action@v6
       with:
         context: ./frontend
-        push: false # Set to true when registry is configured
-        tags: ngvms-frontend:latest
+        push: true
+        tags: ${{ steps.meta-frontend.outputs.tags }}
+        labels: ${{ steps.meta-frontend.outputs.labels }}
+        build-args: |
+          NEXT_PUBLIC_API_URL=/api/v1
+          NEXT_PUBLIC_SOCKET_URL=/

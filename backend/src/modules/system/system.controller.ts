@@ -74,6 +74,8 @@ export const getTenantConfig: RequestHandler = async (req, res) => {
   }
 };
 
+import { reportQueue } from '../../queues/queueSetup';
+
 export const uploadSystemData: RequestHandler = async (req, res) => {
   const { file, body, tenantId } = req as AuthRequest;
   try {
@@ -86,8 +88,12 @@ export const uploadSystemData: RequestHandler = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Only HOST type is supported for upload' });
     }
 
-    const count = await SystemService.uploadHosts(file.buffer, tenantId!);
-    return res.json({ success: true, message: `Successfully processed ${count} hosts into Employee registry.` });
+    const job = await reportQueue.add('import-hosts', {
+      buffer: file.buffer.toString('base64'),
+      tenantId
+    });
+
+    return res.status(202).json({ success: true, message: 'Host import started', jobId: job.id });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }
