@@ -95,8 +95,8 @@ const corsOptions: cors.CorsOptions = {
         const isIp = /^\d{1,3}(?:\.\d{1,3}){3}$/.test(hostname) || hostname.includes(':') || hostname === 'localhost' || hostname === '127.0.0.1';
         const isLocal = hostname.endsWith('.local') || hostname.endsWith('.lan') || hostname.endsWith('.home') || hostname.endsWith('.patel') || hostname.endsWith('.internal');
         
-        // Dynamic Origin Detection: Allow if it matches the base domain, is local, or matches the requested server's hostname
-        if (isIp || isLocal || hostname === baseDomain || hostname.endsWith('.' + baseDomain) || hostname === (req as any).hostname || process.env.DEPLOYMENT_MODE === 'ON_PREM') {
+        // Dynamic Origin Detection: Allow if it matches the base domain or is a local hostname
+        if (isIp || isLocal || hostname === baseDomain || hostname.endsWith('.' + baseDomain) || process.env.DEPLOYMENT_MODE === 'ON_PREM') {
           callback(null, true);
           return;
         }
