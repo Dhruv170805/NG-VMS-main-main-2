@@ -119,6 +119,12 @@ update_env_secret "MINIO_SECRET_KEY"
 update_env_secret "ENCRYPTION_KEY"
 update_env_secret "GRAFANA_PASSWORD"
 
+# Set ALLOW_UNSIGNED_LICENSE if not present
+if ! grep -q "^ALLOW_UNSIGNED_LICENSE=" .env; then
+    echo "ALLOW_UNSIGNED_LICENSE=true" >> .env
+    log "Set ALLOW_UNSIGNED_LICENSE=true for initial deployment."
+fi
+
 # Set strict file permissions on .env
 chmod 600 .env
 log "Environmental secrets configured with strict owner-only access permissions."

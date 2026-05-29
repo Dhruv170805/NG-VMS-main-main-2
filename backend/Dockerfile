@@ -57,7 +57,8 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 
 # Non-root user
 RUN groupadd --gid 1001 nodejs && \
-    useradd --uid 1001 --gid nodejs --shell /bin/false ngvms
+    useradd --uid 1001 --gid nodejs --shell /bin/false ngvms && \
+    mkdir -p /app && chown -R ngvms:nodejs /app
 
 # Copy built artifacts + production node_modules only
 COPY --from=builder --chown=ngvms:nodejs /app/dist        ./dist

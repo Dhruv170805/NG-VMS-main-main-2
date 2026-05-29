@@ -120,6 +120,7 @@ services:
       ALLOW_UNSIGNED_LICENSE: "true"
     volumes:
       - .:/app/shared:ro
+      - ./public.pem:/app/public.pem:ro
     depends_on:
       mongo: { condition: service_healthy }
       redis: { condition: service_healthy }

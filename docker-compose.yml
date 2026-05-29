@@ -7,6 +7,7 @@ services:
     container_name: ngvms_backend
     volumes:
       - .:/app/shared:ro
+      - ./backend/public.pem:/app/public.pem:ro
     environment:
       NODE_ENV: production
       PORT: "5000"

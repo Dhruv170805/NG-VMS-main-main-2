@@ -27,6 +27,7 @@ services:
       LICENSE_SECRET: ${LICENSE_SECRET:-default-secret-key-123}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:-default-secret-key-123}
       SKIP_HW_LOCK: ${SKIP_HW_LOCK:-false}
+      ALLOW_UNSIGNED_LICENSE: "true"
     deploy:
       resources:
         limits:
