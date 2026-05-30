@@ -73,7 +73,8 @@ export class BootstrapService {
       role: 'ADMIN',
       department: 'Management',
       tenantId: tenant._id,
-      isHost: true
+      isHost: true,
+      requiresPasswordChange: true
     });
     await admin.save();
 

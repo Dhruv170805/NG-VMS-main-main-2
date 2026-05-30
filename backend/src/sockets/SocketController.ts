@@ -12,7 +12,7 @@ export const setupSocketHandlers = (io: Server) => {
       const cookies = socket.request.headers.cookie.split(';').map(c => c.trim());
       const tokenCookie = cookies.find(c => c.startsWith('token='));
       if (tokenCookie) {
-        token = tokenCookie.split('=')[1];
+        token = tokenCookie.substring(6);
       }
     }
 
@@ -54,8 +54,12 @@ export const setupSocketHandlers = (io: Server) => {
 
     socket.on('join:host', (hostId: string) => {
       // Hosts must be authenticated within a tenant context
-      if (!tenantId) {
+      if (!tenantId || !user) {
         logger.warn(`[SOCKET] Unauthorized attempt to join host room ${hostId}`);
+        return;
+      }
+      if (user.id !== hostId && user.role !== 'ADMIN' && user.role !== 'SUPER_ADMIN') {
+        logger.warn(`[SOCKET] User ${user.id} attempted to spoof host room ${hostId}`);
         return;
       }
       socket.join(`tenant_${tenantId}_host_${hostId}`);
@@ -80,8 +84,8 @@ export const setupSocketHandlers = (io: Server) => {
           }
         } else {
           joinRequests = 1;
+          lastJoinTime = now;
         }
-        lastJoinTime = now;
 
         if (!mongoose.Types.ObjectId.isValid(visitorId)) {
           logger.warn(`[SOCKET] Invalid visitor ID format: ${visitorId}`);

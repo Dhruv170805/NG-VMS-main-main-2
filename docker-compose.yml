@@ -12,10 +12,10 @@ services:
       NODE_ENV: production
       PORT: "5000"
       MONGODB_URI: ${MONGODB_URI:-mongodb://admin:NGVmsEnterpriseDB2026!@mongo:27017/ngvms?replicaSet=rs0&authSource=admin}
-      REDIS_URL: ${REDIS_URL:-redis://:${REDIS_PASSWORD:-}@redis:6379}
-      JWT_SECRET: ${JWT_SECRET:-YOUR_SUPER_SECRET_PRODUCTION_KEY}
-      LICENSE_SECRET: ${LICENSE_SECRET:-default-secret-key-123}
-      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-default-secret-key-123}
+      REDIS_URL: ${REDIS_URL:-redis://:${REDIS_PASSWORD:-EnterpriseRedisPass2026!}@redis:6379}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set}
+      LICENSE_SECRET: ${LICENSE_SECRET:?LICENSE_SECRET must be set}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:?ENCRYPTION_KEY must be set}
       MINIO_ENDPOINT: ${MINIO_ENDPOINT:-minio}
       MINIO_PORT: ${MINIO_PORT:-9000}
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
@@ -27,6 +27,7 @@ services:
       DISABLE_RATE_LIMITS: "false"
       SKIP_HW_LOCK: ${SKIP_HW_LOCK:-false}
       ALLOW_UNSIGNED_LICENSE: "true"
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:8080}
     depends_on:
       redis:
         condition: service_started
@@ -77,11 +78,9 @@ services:
     restart: unless-stopped
     networks:
       - ngvms_network
-    ports:
-      - "6379:6379"
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:-EnterpriseRedisPass2026!}"]
     volumes:
       - redis_data:/data
-    # Dev compose: no auth required. Use docker-compose.prod.yml for production auth.
 
   mongo:
     image: mongo:6

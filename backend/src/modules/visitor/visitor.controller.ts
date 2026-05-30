@@ -88,7 +88,8 @@ export const registerVisitor: RequestHandler = async (req, res) => {
     io.to(tenantRoom).emit('visitor:new', visitor);
     io.to(tenantRoom).emit('stats:update', { type: 'new_visitor' });
 
-    res.status(202).json({ success: true, visitor });
+    const passToken = jwt.sign({ visitorId: visitor._id.toString(), type: 'pass' }, process.env.JWT_SECRET as string, { expiresIn: '7d' });
+    res.status(202).json({ success: true, visitor, passToken });
   } catch (error: any) {
     res.status(400).json({ success: false, message: error.message });
   }
@@ -209,21 +210,20 @@ export const lookupVisitor: RequestHandler = async (req, res) => {
   try {
     const visitor = await Visitor.findOne({ phone: (params.phone as string).trim(), tenantId: tenantId! }).sort({ createdAt: -1 });
     if (visitor) {
-      const socketToken = jwt.sign(
-        { visitorId: visitor._id.toString(), type: 'socket' },
+      const passToken = jwt.sign(
+        { visitorId: visitor._id.toString(), type: 'pass' },
         process.env.JWT_SECRET as string,
-        { expiresIn: '15m' }
+        { expiresIn: '7d' }
       );
       res.json({
         success: true,
         visitor: {
           _id: visitor._id,
-          name: visitor.name,
-          email: visitor.email,
-          company: visitor.company || '',
+          name: visitor.name.charAt(0) + '***' + visitor.name.slice(-1),
+          company: visitor.company ? visitor.company.charAt(0) + '***' : '',
           idProofType: visitor.idProofType || ''
         },
-        socketToken
+        passToken
       });
     } else {
       res.json({ success: false, message: 'Not found' });
@@ -266,8 +266,18 @@ export const verifyVisitorSignatures: RequestHandler = async (req, res) => {
 
 /** Public pass view — minimal fields only, safe for unauthenticated QR scan */
 export const getVisitorPass: RequestHandler = async (req, res) => {
-  const { params, tenantId } = req as TenantRequest;
+  const { params, query, tenantId } = req as TenantRequest & { query: any };
   try {
+    const token = query.token as string;
+    if (token) {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as any;
+      if (decoded.visitorId !== params.id) {
+        return res.status(403).json({ success: false, message: 'Invalid pass token for this visitor' });
+      }
+    } else if (!(req as AuthRequest).user) {
+      return res.status(401).json({ success: false, message: 'Unauthorized pass access: Token missing' });
+    }
+
     const visitor = await VisitorService.getById(params.id as string, tenantId!);
     if (!visitor) return res.status(404).json({ success: false, message: 'Pass not found' });
     

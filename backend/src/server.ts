@@ -220,15 +220,9 @@ setNotificationIO(io);
 app.use(cors(corsOptions));
 app.use(cookieParser());
 
-// Global body parsing with 100kb limit, but 10mb limit for high-payload routes
-app.use((req, res, next) => {
-  const isHighPayload = req.path.includes('/visitors/register') || req.path.includes('/id-preview');
-  const limit = isHighPayload ? '10mb' : '100kb';
-  express.json({ limit })(req, res, (err) => {
-    if (err) return next(err);
-    express.urlencoded({ limit, extended: true })(req, res, next);
-  });
-});
+// Global body parsing with 100kb limit. High payload routes MUST use route-specific middleware.
+app.use(express.json({ limit: '100kb' }));
+app.use(express.urlencoded({ limit: '100kb', extended: true }));
 
 app.use(requestLogger); // Structured Request Logging
 

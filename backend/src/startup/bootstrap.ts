@@ -66,7 +66,7 @@ export const runStartupBootstrap = async () => {
       logger.info(`[NG-VMS] Clean database detected. Auto-bootstrapping using license from ${lic.path}...`);
       const companyName = data.company || 'Enterprise Corporation';
       const adminEmail = data.rootAdmin?.id || 'admin@enterprise.com';
-      const adminPassword = data.rootAdmin?.password || 'password123';
+      const adminPassword = data.rootAdmin?.password || require('crypto').randomBytes(12).toString('hex');
 
       await BootstrapService.runBootstrap({
         companyName,
@@ -79,7 +79,7 @@ export const runStartupBootstrap = async () => {
         guardPassword: adminPassword,
         licenseKey: lic.key
       });
-      logger.info(`[NG-VMS] Auto-bootstrapping complete! Tenant: ${companyName}, Subdomain: ${companyCode}, Admin: ${adminEmail}`);
+      logger.info(`[NG-VMS] Auto-bootstrapping complete! Tenant: ${companyName}, Subdomain: ${companyCode}, Admin: ${adminEmail}, Temporary Password: ${adminPassword}`);
     } else {
       // If already bootstrapped, check for dynamic update/alignment
       await BootstrapService.updateTenantLicense(lic.key, data, companyCode);

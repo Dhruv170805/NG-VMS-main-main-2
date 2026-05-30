@@ -138,7 +138,9 @@ export const notifyHostRegistration = async (hostId: string, hostEmail: string, 
 };
 
 export const notifyVisitorApproval = async (visitorPhone: string, visitorName: string, visitorId: string, tenantId: any, visitorEmail?: string) => {
-  const passUrl = `${process.env.FRONTEND_URL}/pass?id=${visitorId}`;
+  const jwt = require('jsonwebtoken');
+  const token = jwt.sign({ visitorId: visitorId.toString(), type: 'pass' }, process.env.JWT_SECRET as string, { expiresIn: '7d' });
+  const passUrl = `${process.env.FRONTEND_URL}/pass?id=${visitorId}&token=${token}`;
   const message = `Hi ${visitorName}, your visitor pass is APPROVED. Access here: ${passUrl}`;
   await sendNotification('VISITOR', message, 'SMS', 'APPROVAL', tenantId, { phone: visitorPhone, visitorId });
   if (visitorEmail) await sendNotification('VISITOR', message, 'EMAIL', 'APPROVAL', tenantId, { email: visitorEmail, visitorId });

@@ -78,6 +78,13 @@ export const useGuardUI = (
         }),
         credentials: 'include'
       });      if (res.ok) {
+        try {
+          await fetch(`${API_CONFIG.ENDPOINTS.AUTH}/logout`, { 
+            method: 'POST', 
+            headers: { 'x-tenant-id': getTenantId() },
+            credentials: 'include' 
+          });
+        } catch (err) {}
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         router.push('/login');

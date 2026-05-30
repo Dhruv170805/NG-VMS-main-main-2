@@ -14,18 +14,13 @@ import { AlertCircle, ArrowRight, Shield, Info, CheckCircle, Smartphone, Downloa
 import styles from '@/app/pass/pass.module.css';
 import { useAuth } from '@/context/AuthContext';
 
-// Socket connection
-const socket = io(API_CONFIG.SOCKET_URL, {
-  transports: ['polling', 'websocket'],
-  reconnection: true,
-  reconnectionAttempts: Infinity
-});
 
 const DigitalPass: React.FC = () => {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { tenant, getTenantId } = useTenant();
   const visitorId = searchParams.get('id') || '';
+  const passToken = searchParams.get('token') || '';
   const isPrintView = searchParams.get('print') === 'true';
   const [guardConfig, setGuardConfig] = useState<any>(null);
   const activePrintMode = searchParams.get('mode') || guardConfig?.printMode || 'HARD_PRINT_BOTH';
@@ -75,10 +70,18 @@ const DigitalPass: React.FC = () => {
 
   useEffect(() => {
     if (!visitorId) return;
+    
+    const socket = io(API_CONFIG.SOCKET_URL, {
+      transports: ['polling', 'websocket'],
+      reconnection: true,
+      reconnectionAttempts: Infinity
+    });
+
     const controller = new AbortController();
     const fetchVisitor = async (signal?: AbortSignal) => {
       try {
-        const res = await fetch(`${API_CONFIG.ENDPOINTS.VISITORS}/${visitorId}/pass`, {
+        const url = passToken ? `${API_CONFIG.ENDPOINTS.VISITORS}/${visitorId}/pass?token=${passToken}` : `${API_CONFIG.ENDPOINTS.VISITORS}/${visitorId}/pass`;
+        const res = await fetch(url, {
           credentials: 'include',
           signal,
           headers: {
@@ -107,9 +110,9 @@ const DigitalPass: React.FC = () => {
     });
     return () => {
       controller.abort();
-      socket.off('status:update');
+      socket.disconnect();
     };
-  }, [visitorId]);
+  }, [visitorId, passToken, getTenantId]);
 
   useEffect(() => {
     if (!visitor || !['GATE_IN', 'MEET_IN', 'MEET_OUT', 'CHECKED_IN', 'IN_MEETING'].includes(status)) {

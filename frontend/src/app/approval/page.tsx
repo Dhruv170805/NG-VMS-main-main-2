@@ -55,7 +55,7 @@ const OverstayTimer = ({ expectedCheckout }: { expectedCheckout?: string }) => {
 
 const EmployeeApproval: React.FC = () => {
   const router = useRouter();
-  const { socket, connect, isConnected } = useSocketStore();
+  const { socket, connect, disconnect, isConnected } = useSocketStore();
   const { 
     visitors, history, isLoading, timeline, activeVisitor, historyPagination,
     fetchHostVisitors, fetchHostHistory, fetchTimeline, updateStatus, 
@@ -85,7 +85,11 @@ const EmployeeApproval: React.FC = () => {
     connect();
     fetchHostVisitors(user.id || user._id);
     fetchHostHistory(user.id || user._id);
-  }, [router, connect, fetchHostVisitors, fetchHostHistory, user, authLoading]);
+
+    return () => {
+      disconnect();
+    };
+  }, [router, connect, disconnect, fetchHostVisitors, fetchHostHistory, user, authLoading]);
 
   useEffect(() => {
     if (!socket || !user) return;
