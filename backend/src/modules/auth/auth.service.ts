@@ -76,6 +76,35 @@ export class AuthService {
     return { employee, accessToken, refreshToken };
   }
 
+  /**
+   * Creates an employee account without generating session tokens.
+   * Used when an admin provisions a new user — no tokens needed.
+   */
+  static async createEmployeeWithoutTokens(data: any, tenantId: mongoose.Types.ObjectId) {
+    const { name, email, password, department, role } = data;
+
+    const employeeExists = await Employee.findOne({ email, tenantId });
+    if (employeeExists) {
+      throw new Error('Employee already exists');
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    const employee = await Employee.create({
+      name,
+      email,
+      password: hashedPassword,
+      department,
+      role: role || 'STAFF',
+      tenantId,
+      requiresPasswordChange: true
+    });
+
+    return { employee };
+  }
+
+
   static async loginEmployee(data: any, tenantId: mongoose.Types.ObjectId) {
     const { email, password } = data;
 

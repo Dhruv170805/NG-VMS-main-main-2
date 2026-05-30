@@ -20,11 +20,16 @@ const getRefreshMaxAge = () => {
 export const registerEmployee: RequestHandler = async (req, res): Promise<void> => {
   const { body, tenantId, user } = req as AuthRequest;
   try {
-    const { employee, accessToken, refreshToken } = await AuthService.registerEmployee(body, tenantId!);
+    // When an authenticated admin creates a user, skip token generation entirely.
+    // The protect+authorize('ADMIN') middleware already guarantees user.role === 'ADMIN' here.
+    const isAdminCreating = user && user.role === 'ADMIN';
+
+    const { employee, accessToken, refreshToken } = isAdminCreating
+      ? { ...(await AuthService.createEmployeeWithoutTokens(body, tenantId!)), accessToken: null, refreshToken: null }
+      : await AuthService.registerEmployee(body, tenantId!);
     
-    // Only set cookies if the requester is NOT already an authenticated admin
-    // This prevents the admin session from being replaced when creating new users
-    if (!user || user.role !== 'ADMIN') {
+    // Only set cookies when this is a self-registration (not an admin creating a user)
+    if (!isAdminCreating && accessToken && refreshToken) {
       // Set Access Token Cookie (15 mins)
       res.cookie('token', accessToken, {
         httpOnly: true,
@@ -55,6 +60,7 @@ export const registerEmployee: RequestHandler = async (req, res): Promise<void> 
     res.status(400).json({ message: error.message });
   }
 };
+
 
 export const loginEmployee: RequestHandler = async (req, res): Promise<void> => {
   const { body, tenantId } = req as TenantRequest;

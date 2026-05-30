@@ -412,6 +412,7 @@ export const useAdminDashboard = () => {
 
   const handleAddStaff = async (e: React.FormEvent) => {
     e.preventDefault();
+    setUploadStatus({ message: 'Creating user...', type: 'info' });
     try {
       const res = await fetch(`${API_CONFIG.ENDPOINTS.AUTH}/register`, {
         method: 'POST',
@@ -422,14 +423,26 @@ export const useAdminDashboard = () => {
         credentials: 'include',
         body: JSON.stringify(newStaff)
       });
+      const data = await res.json();
       if (res.ok) {
         setUploadStatus({ message: 'User created successfully.', type: 'success' });
         setShowAddStaff(false);
+        // Optimistically add the new user to the list immediately
+        if (data._id) {
+          setUsers(prev => [...prev, { ...data, isAvailable: true, isHost: false }]);
+        }
         setNewStaff({ name: '', email: '', password: '', department: '', role: 'STAFF' });
+        // Also re-fetch from server to ensure list is in sync
         fetchUsers();
+        setTimeout(() => setUploadStatus({ message: '', type: '' }), 3000);
+      } else {
+        setUploadStatus({ message: data.message || 'Failed to create user.', type: 'error' });
       }
-    } catch (err) {}
+    } catch (err) {
+      setUploadStatus({ message: 'Network error. Please check your connection.', type: 'error' });
+    }
   };
+
 
   const handleBlacklist = async (visitor: Visitor) => {
     if (!confirm(`Are you sure you want to BLACKLIST ${visitor.name}?`)) return;

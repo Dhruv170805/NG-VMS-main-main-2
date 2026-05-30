@@ -7,7 +7,7 @@ export interface IEmployee extends Document {
   phone?: string;
   password?: string;
   department: string;
-  role: 'ADMIN' | 'MANAGER' | 'STAFF' | 'GUARD';
+  role: 'ADMIN' | 'MANAGER' | 'STAFF' | 'GUARD' | 'RECEPTIONIST';
   isAvailable: boolean;
   isHost: boolean;
   avatar?: string;
@@ -25,7 +25,7 @@ const EmployeeSchema: Schema = new Schema({
   department: { type: String, required: true },
   role: { 
     type: String, 
-    enum: ['ADMIN', 'MANAGER', 'STAFF', 'GUARD'], 
+    enum: ['ADMIN', 'MANAGER', 'STAFF', 'GUARD', 'RECEPTIONIST'], 
     default: 'STAFF' 
   },
   isAvailable: { type: Boolean, default: true },
