@@ -214,7 +214,7 @@ const AdminDashboard: React.FC = () => {
                   Create Users
                 </button>
                 <button className="glass-btn" onClick={() => setStaffView('config')} style={{ border: 'none', background: staffView === 'config' ? 'white' : 'transparent', padding: '8px 16px' }}>
-                  Host PRIVILEGES
+                  ALLOW TO HOST
                 </button>
               </div>
             )}

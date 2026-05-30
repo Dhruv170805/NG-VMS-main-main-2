@@ -401,7 +401,7 @@ export default function GuardTerminal() {
              PENDING <strong>{summary.pending}</strong>
           </button>
           <button className={`stat_pill forwarded_pill ${historyFilter === 'SENT_FOR_APPROVAL' ? 'active_filter' : ''}`} onClick={() => setHistoryFilter('SENT_FOR_APPROVAL')} aria-pressed={historyFilter === 'SENT_FOR_APPROVAL'}>
-             FORWARDED <strong>{summary.forwarded}</strong>
+             PENDING AT HOST <strong>{summary.forwarded}</strong>
           </button>
           <button className={`stat_pill approved_pill ${historyFilter === 'APPROVED' ? 'active_filter' : ''}`} onClick={() => setHistoryFilter('APPROVED')} aria-pressed={historyFilter === 'APPROVED'}>
              APPROVED <strong>{summary.approved}</strong>

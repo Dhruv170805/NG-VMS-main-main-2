@@ -166,7 +166,7 @@ export const SidebarHistory: React.FC<SidebarHistoryProps> = ({
                       }
                     }}
                   >
-                    {entry.aadhaarVerified ? 'FORWARDED' : (isAadhaarLicensed ? 'REQUIRE AADHAAR' : 'FORWARD TO HOST')}
+                    {entry.aadhaarVerified ? 'PENDING AT HOST' : (isAadhaarLicensed ? 'REQUIRE AADHAAR' : 'PENDING AT HOST')}
                   </button>
                 )}
                 {entry.status === 'APPROVED' && (

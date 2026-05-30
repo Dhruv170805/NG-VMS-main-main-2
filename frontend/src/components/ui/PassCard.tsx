@@ -96,7 +96,7 @@ export const PassCard: React.FC<PassCardProps> = ({
           <div key={step} className={`${styles.timeline_step} ${getStepClass(step)}`}>
             <div className={styles.timeline_dot} />
             <span className={styles.timeline_label}>
-              {step === 'SENT_FOR_APPROVAL' ? 'FORWARDED' : step.replace('_', ' ')}
+              {step === 'SENT_FOR_APPROVAL' ? 'PENDING AT HOST' : step.replace('_', ' ')}
             </span>
           </div>
         ))}

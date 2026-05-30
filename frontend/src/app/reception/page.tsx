@@ -33,11 +33,14 @@ export default function Reception() {
         <h1 className={styles.title}>Welcome</h1>
         <p className={styles.subtitle}>Scan to Register Your Arrival</p>
 
-        <motion.div 
+        <motion.a 
+          href="/register"
+          target="_blank"
+          rel="noopener noreferrer"
           className={styles.qr_box}
           whileHover={{ scale: 1.05 }}
           transition={{ type: "spring", stiffness: 300 }}
-          onClick={() => router.push('/register')}
+          style={{ textDecoration: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center' }}
         >
           {registrationUrl && (
             <QRCodeSVG 
@@ -51,7 +54,7 @@ export default function Reception() {
           <div className={styles.qr_overlay}>
              <span>TAP TO START</span>
           </div>
-        </motion.div>
+        </motion.a>
 
         <p className={styles.hint}>Use your mobile camera or tap the QR</p>
         

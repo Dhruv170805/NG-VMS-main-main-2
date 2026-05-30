@@ -42,7 +42,7 @@ export interface ShiftStats {
 
 export const STATUS_CONFIG: Record<string, { class: string; label: string; icon: any; color: string }> = {
   PENDING_GUARD:    { class: 'chip_pending', label: 'PENDING', icon: <Clock size={12} />, color: 'var(--status-pending)' },
-  SENT_FOR_APPROVAL: { class: 'chip_forwarded', label: 'FORWARDED', icon: <ArrowRight size={12} />, color: 'var(--status-forwarded)' },
+  SENT_FOR_APPROVAL: { class: 'chip_forwarded', label: 'PENDING AT HOST', icon: <ArrowRight size={12} />, color: 'var(--status-forwarded)' },
   APPROVED:         { class: 'chip_approved', label: 'APPROVED', icon: <CheckCircle2 size={12} />, color: 'var(--status-approved)' },
   REJECTED:         { class: 'chip_rejected', label: 'REJECTED', icon: <XCircle size={12} />, color: 'var(--status-rejected)' },
   GATE_IN:          { class: 'chip_gate_in', label: 'GATE IN', icon: <LogIn size={12} />, color: 'var(--status-gate-in)' },

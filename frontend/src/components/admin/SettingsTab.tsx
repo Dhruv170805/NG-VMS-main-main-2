@@ -287,7 +287,7 @@ export const SettingsTab: React.FC<Props> = ({
           <div className={styles.notification_matrix_granular}>
             {Object.keys(notificationSettings).map((stage) => {
               let displayLabel = stage.replace('_', ' ');
-              if (stage === 'REGISTRATION') displayLabel = 'FORWARDED';
+              if (stage === 'REGISTRATION') displayLabel = 'PENDING AT GUARD';
               if (stage === 'APPROVAL') displayLabel = 'APPROVED';
               if (stage === 'CHECK_IN') displayLabel = 'GATE IN';
               if (stage === 'OVERDUE') displayLabel = 'OVER STAY';

@@ -611,7 +611,7 @@ export const useAdminDashboard = () => {
     });
 
     if (statusFilter === 'approved') filtered = filtered.filter(v => v.status === 'APPROVED');
-    else if (statusFilter === 'forwarded') filtered = filtered.filter(v => v.status === 'SENT_FOR_APPROVAL' || v.status === 'FORWARDED');
+    else if (statusFilter === 'forwarded') filtered = filtered.filter(v => v.status === 'SENT_FOR_APPROVAL' || v.status === 'PENDING AT HOST');
     else if (statusFilter === 'gate_in') filtered = filtered.filter(v => ['GATE_IN', 'MEET_IN', 'MEET_OUT', 'CHECKED_IN', 'IN_MEETING'].includes(v.status));
     else if (statusFilter === 'rejected') filtered = filtered.filter(v => ['REJECTED', 'DENIED_BLACKLIST'].includes(v.status));
 

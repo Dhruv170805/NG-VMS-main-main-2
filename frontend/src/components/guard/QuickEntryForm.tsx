@@ -220,7 +220,7 @@ export const QuickEntryForm: React.FC<QuickEntryFormProps> = ({
         </div>
 
         <div className="reg_webcam_viewport" style={{ maxWidth: '100%', height: '240px', border: '4px solid var(--apple-blue)', borderRadius: '20px', position: 'relative', overflow: 'hidden' }}>
-          <Webcam audio={false} ref={webcamRefReg} screenshotFormat="image/jpeg" className="webcam_element" mirrored={captureMode === 'VISITOR'} videoConstraints={{ aspectRatio: 1.33, facingMode: 'user' }} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          <Webcam audio={false} ref={webcamRefReg} screenshotFormat="image/jpeg" className="webcam_element" mirrored={captureMode === 'VISITOR'} videoConstraints={{ width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' }} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           <div className="hud_bracket hud_tl" />
           <div className="hud_bracket hud_tr" />
           <div className="hud_bracket hud_bl" />

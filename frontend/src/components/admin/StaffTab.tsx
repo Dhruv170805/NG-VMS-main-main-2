@@ -261,8 +261,8 @@ export const StaffTab: React.FC<Props> = ({
           <div className={`glass-card ${styles.registry_card}`}>
             <div className={styles.table_header}>
               <div>
-                <h3>HOST PRIVILEGES control center</h3>
-                <p className={styles.table_subtitle}>HOST PRIVILEGES control center</p>
+                <h3>ALLOW TO HOST Control Center</h3>
+                <p className={styles.table_subtitle}>Manage which users can host visitors</p>
               </div>
               <div className={styles.header_actions}>
                 <div className={styles.matrix_search}>
@@ -284,7 +284,7 @@ export const StaffTab: React.FC<Props> = ({
                   <tr>
                     <th>User</th>
                     <th>Role</th>
-                    <th>Host Privileges</th>
+                    <th>Allow to Host</th>
                   </tr>
                 </thead>
                 <tbody>

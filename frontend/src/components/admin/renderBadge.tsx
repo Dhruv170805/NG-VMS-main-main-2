@@ -6,14 +6,14 @@ import {
 
 export const renderBadge = (status: string): React.ReactElement => {
   let s = status.toLowerCase().trim().replace(/[-\s]/g, '_');
-  if (s === 'sent_for_approval') s = 'forwarded';
+  if (s === 'sent_for_approval') s = 'pending at host';
   if (s === 'in_meeting') s = 'meet_in';
   if (s === 'completed') s = 'gate_out';
 
   let label = status.replace(/_/g, ' ');
   let Icon = Clock;
 
-  if (status === 'SENT_FOR_APPROVAL') { label = 'FORWARDED'; Icon = ArrowRight; }
+  if (status === 'SENT_FOR_APPROVAL') { label = 'PENDING AT HOST'; Icon = ArrowRight; }
   if (status === 'CANCEL_MEET') { label = 'CANCEL MEET'; Icon = XCircle; }
   if (status === 'DENIED_BLACKLIST') { label = 'BLACKLISTED'; Icon = Ban; }
   if (status === 'GATE_IN') { label = 'GATE IN'; Icon = LogIn; }

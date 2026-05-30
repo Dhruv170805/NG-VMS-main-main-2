@@ -168,7 +168,7 @@ export const OverviewTab: React.FC<Props> = ({
           isActive={statusFilter === 'approved'}
         />
         <StatCard
-          title="FORWARDED"
+          title="PENDING AT HOST"
           value={stats.forwarded}
           type="pending"
           icon="◷"

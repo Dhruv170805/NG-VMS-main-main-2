@@ -168,14 +168,17 @@ const VisitorRegistration: React.FC = () => {
   useEffect(() => {
     let timerId: NodeJS.Timeout;
 
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
     const detect = () => {
       const video = webcamRef.current?.video;
       if (modelsLoaded && video && video.readyState === 4 && workerRef.current) {
-        // Draw to a hidden canvas to extract ImageData
-        const canvas = document.createElement('canvas');
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        const ctx = canvas.getContext('2d');
+        if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+        }
+        
         if (ctx) {
           ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
           const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
@@ -546,7 +549,7 @@ const VisitorRegistration: React.FC = () => {
                   </div>
 
                   <div className="reg_webcam_viewport">
-                    <Webcam audio={false} ref={webcamRef} screenshotFormat="image/jpeg" className="webcam_element" mirrored={false} videoConstraints={{ aspectRatio: 1, facingMode: 'user' }} />
+                    <Webcam audio={false} ref={webcamRef} screenshotFormat="image/jpeg" className="webcam_element" mirrored={false} videoConstraints={{ width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' }} />
 
                     {/* HUD ELEMENTS */}
                     <div className="hud_bracket hud_tl" />
