@@ -11,7 +11,7 @@ export const tenantMiddleware = async (req: Request, res: Response, next: NextFu
 
   // Exempt routes that do not require strict license locks
   // We use regex to match regardless of API prefix (v1, v2, none)
-  const isExempt = /^\/(api\/(v\d+\/)?)?\/(bootstrap|system\/health|system\/version|system\/config|system\/license|auth)/i.test(req.originalUrl);
+  const isExempt = /^\/(api\/(v\d+\/)?)?(bootstrap|system\/health|system\/version|system\/config|system\/license|auth)/i.test(req.originalUrl);
 
   let subdomain = req.headers['x-tenant-id'] as string;
 
