@@ -24,5 +24,6 @@ const VisitorLogSchema: Schema = new Schema({
 }, { timestamps: { createdAt: true, updatedAt: false } });
 
 VisitorLogSchema.index({ visitorId: 1, tenantId: 1, createdAt: 1 });
+VisitorLogSchema.index({ tenantId: 1, createdAt: -1 });
 
 export default mongoose.model<IVisitorLog>('VisitorLog', VisitorLogSchema);

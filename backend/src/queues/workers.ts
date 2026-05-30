@@ -2,6 +2,7 @@ import { Worker, Job } from 'bullmq';
 import redisConnection from '../config/redis';
 import Visitor from '../modules/visitor/visitor.model';
 import Employee from '../modules/employee/employee.model';
+import Tenant from '../modules/system/tenant.model';
 import { notifySecurityOverstay } from '../utils/notificationService';
 import logger from '../utils/logger';
 import { optimizeImage } from '../utils/imageOptimizer';
@@ -15,49 +16,57 @@ export const overstayWorker = new Worker(
     const now = new Date();
 
     try {
-      // Find active visitors whose expected checkout has passed
-      const activeVisitors = await Visitor.find({
-        status: { $in: ['GATE_IN', 'MEET_IN'] },
-        expectedCheckout: { $lt: now },
-      }).populate('hostId');
+      const tenants = await Tenant.find({});
+      for (const tenant of tenants) {
+        const tenantId = tenant._id;
+        
+        // Find active visitors whose expected checkout has passed for THIS tenant
+        const activeVisitors = await Visitor.find({
+          tenantId,
+          status: { $in: ['GATE_IN', 'MEET_IN'] },
+          expectedCheckout: { $lt: now },
+        }).populate('hostId');
 
-      logger.info({ count: activeVisitors.length }, `Found ${activeVisitors.length} potential overstays`);
+        if (activeVisitors.length === 0) continue;
 
-      const CHUNK_SIZE = 50;
-      for (let i = 0; i < activeVisitors.length; i += CHUNK_SIZE) {
-        const chunk = activeVisitors.slice(i, i + CHUNK_SIZE);
+        logger.info({ tenantId, count: activeVisitors.length }, `Found ${activeVisitors.length} potential overstays`);
 
-        await Promise.all(chunk.map(async (visitor) => {
-          // Prevent duplicate alerts within a 12-hour period using Redis cache
-          const redisKey = `overstay_alerted:${visitor._id}`;
-          const alreadyAlerted = await redisConnection.get(redisKey);
+        const CHUNK_SIZE = 50;
+        for (let i = 0; i < activeVisitors.length; i += CHUNK_SIZE) {
+          const chunk = activeVisitors.slice(i, i + CHUNK_SIZE);
 
-          if (alreadyAlerted) {
-            return;
-          }
+          await Promise.all(chunk.map(async (visitor) => {
+            // Prevent duplicate alerts within a 12-hour period using Redis cache
+            const redisKey = `overstay_alerted:${visitor._id}`;
+            const alreadyAlerted = await redisConnection.get(redisKey);
 
-          let hostEmail = '';
-          let hostIdStr = '';
-
-          if (visitor.hostId) {
-            const host = visitor.hostId as any;
-            if (host && host.email) {
-              hostEmail = host.email;
-              hostIdStr = host._id.toString();
+            if (alreadyAlerted) {
+              return;
             }
-          }
 
-          logger.warn(
-            { visitorId: visitor._id, visitorName: visitor.name, tenantId: visitor.tenantId },
-            `Visitor overstay detected. Triggering security alerts.`
-          );
+            let hostEmail = '';
+            let hostIdStr = '';
 
-          // Call the notification service
-          await notifySecurityOverstay(visitor.name, hostEmail, hostIdStr, visitor.tenantId);
+            if (visitor.hostId) {
+              const host = visitor.hostId as any;
+              if (host && host.email) {
+                hostEmail = host.email;
+                hostIdStr = host._id.toString();
+              }
+            }
 
-          // Mark as alerted for 12 hours (43200 seconds)
-          await redisConnection.set(redisKey, 'true', 'EX', 43200);
-        }));
+            logger.warn(
+              { visitorId: visitor._id, visitorName: visitor.name, tenantId },
+              `Visitor overstay detected. Triggering security alerts.`
+            );
+
+            // Call the notification service
+            await notifySecurityOverstay(visitor.name, hostEmail, hostIdStr, tenantId);
+
+            // Mark as alerted for 12 hours (43200 seconds)
+            await redisConnection.set(redisKey, 'true', 'EX', 43200);
+          }));
+        }
       }
     } catch (error: any) {
       logger.error({ err: error.message }, 'Error in overstay detection job');
@@ -108,9 +117,30 @@ export const reportWorker = new Worker(
 
         const xlsxBuffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
         
-        // In a real app, we would upload this buffer to MinIO and return the URL
-        // or notify the user via socket.io that the report is ready.
-        logger.info({ tenantId }, 'Purpose report generated successfully');
+        const { emailQueue } = require('./queueSetup');
+        const admins = await Employee.find({ tenantId, role: 'ADMIN' });
+        
+        for (const admin of admins) {
+          if (admin.email) {
+            await emailQueue.add('send-report', {
+              type: 'EMAIL',
+              context: { email: admin.email },
+              tenantId,
+              subject: 'Daily Visitor Purpose Report',
+              message: 'Please find attached the daily visitor purpose distribution report.',
+              attachments: [
+                {
+                  filename: `Purpose_Report_${dateStr || new Date().toISOString().split('T')[0]}.xlsx`,
+                  content: xlsxBuffer.toString('base64'),
+                  encoding: 'base64',
+                  contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                }
+              ]
+            });
+          }
+        }
+
+        logger.info({ tenantId }, 'Purpose report generated and dispatched successfully');
         return { success: true, bufferLength: xlsxBuffer.length };
       }
 
@@ -148,13 +178,33 @@ export const reportWorker = new Worker(
 export const emailWorker = new Worker(
   'email-batching',
   async (job: Job) => {
-    const { recipientType, message, type, stage, tenantId, context } = job.data;
+    const { recipientType, message, type, stage, tenantId, context, attachments, subject } = job.data;
     logger.info({ jobId: job.id, recipientType, stage }, 'Processing batched notification dispatch');
 
     try {
-      // In a real production setup, we dispatch via notificationService directly or using SMTP pool
-      // For email-batching, this decouples Express response time from SMTP delivery times.
-      logger.info({ email: context?.email, stage }, 'Sending batched email notification');
+      if (type === 'EMAIL' && context?.email) {
+        const { getSMTPTransport } = require('../utils/notificationService');
+        const Setting = require('../modules/system/setting.model').default;
+        
+        const transporter = await getSMTPTransport(tenantId);
+        if (transporter) {
+          const smtpConfig = await Setting.findOne({ key: 'smtp_config', tenantId });
+          const fromEmail = smtpConfig?.value?.from || 'no-reply@vms.com';
+          
+          await transporter.sendMail({
+            from: `"NG-VMS" <${fromEmail}>`,
+            to: context.email,
+            subject: subject || `Alert: ${stage ? stage.replace('_', ' ') : 'Notification'}`,
+            text: message,
+            attachments: attachments || []
+          });
+        }
+      } else {
+        const { sendNotification } = require('../utils/notificationService');
+        await sendNotification(recipientType, message, type, stage, tenantId, context);
+      }
+      
+      logger.info({ email: context?.email, stage }, 'Sent batched email notification');
       return { dispatched: true };
     } catch (error: any) {
       logger.error({ err: error.message }, 'Failed to dispatch batched email');

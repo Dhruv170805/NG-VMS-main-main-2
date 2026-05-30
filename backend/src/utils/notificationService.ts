@@ -10,7 +10,7 @@ export const setNotificationIO = (io: Server) => {
   ioInstance = io;
 };
 
-const getSMTPTransport = async (tenantId: any) => {
+export const getSMTPTransport = async (tenantId: any) => {
   const settings = await Setting.findOne({ key: 'smtp_config', tenantId });
   if (settings && settings.value) {
     const { host, port, user, pass, secure } = settings.value;

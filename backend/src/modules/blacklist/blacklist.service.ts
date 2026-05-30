@@ -10,10 +10,11 @@ export class BlacklistService {
       let query: any = { tenantId };
 
       if (search) {
+        const cleanSearch = search.replace(/[/\-\\^$*+?.()|[\]{}]/g, '\\$&');
         query.$or = [
-          { name: { $regex: search, $options: 'i' } },
-          { company: { $regex: search, $options: 'i' } },
-          { reason: { $regex: search, $options: 'i' } }
+          { name: { $regex: cleanSearch, $options: 'i' } },
+          { company: { $regex: cleanSearch, $options: 'i' } },
+          { reason: { $regex: cleanSearch, $options: 'i' } }
         ];
       }
 

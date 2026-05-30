@@ -351,12 +351,14 @@ export class VisitorService {
       if (visitor) return visitor;
     }
 
+    const cleanId = id.replace(/[/\-\\^$*+?.()|[\]{}]/g, '\\$&');
+
     return await Visitor.findOne({
       tenantId,
       $or: [
         { phone: id },
         { idProofNumber: id },
-        { idProofNumber: { $regex: new RegExp(id + '$', 'i') } },
+        { idProofNumber: { $regex: new RegExp(cleanId + '$', 'i') } },
         { idNumberHash: id }
       ]
     }).populate('hostId', 'name email department').sort({ createdAt: -1 });

@@ -11,7 +11,7 @@
 const isBrowser = typeof window !== 'undefined';
 
 // ── Configuration Variables (Configurable via env vars, with defaults) ──────
-const BACKEND_PORT = process.env.NEXT_PUBLIC_BACKEND_PORT || '5000';
+const BACKEND_PORT = process.env.NEXT_PUBLIC_BACKEND_PORT || '8080';
 const API_PATH = process.env.NEXT_PUBLIC_API_PATH || '/api/v1';
 
 /**

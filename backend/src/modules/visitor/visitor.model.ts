@@ -125,5 +125,6 @@ VisitorSchema.index({ tenantId: 1, status: 1 });
 VisitorSchema.index({ tenantId: 1, idNumberHash: 1 });
 VisitorSchema.index({ tenantId: 1, name: 1 });
 VisitorSchema.index({ tenantId: 1, company: 1 });
+VisitorSchema.index({ tenantId: 1, createdAt: -1 });
 
 export default mongoose.model<IVisitor>('Visitor', VisitorSchema);

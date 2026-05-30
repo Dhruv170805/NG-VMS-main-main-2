@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { API_CONFIG, buildUrl } from '@/app/config';
 import { Visitor } from '@/components/guard/types';
 import { useTenant } from '@/context/TenantContext';
@@ -16,6 +16,16 @@ export const useGuardAadhaar = (
   const [pdfRenderedImage, setPdfRenderedImage] = useState<string | null>(null);
   const [uidaiWindow, setUidaiWindow] = useState<Window | null>(null);
   const [fetchedFile, setFetchedFile] = useState<File | null>(null);
+
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const timeoutIdRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (timeoutIdRef.current) clearTimeout(timeoutIdRef.current);
+      if (abortControllerRef.current) abortControllerRef.current.abort();
+    };
+  }, []);
 
   useEffect(() => {
     const handleReentry = () => {
@@ -108,7 +118,9 @@ export const useGuardAadhaar = (
     if (aadhaarPassword) form.append('password', aadhaarPassword);
 
     const controller = new AbortController();
+    abortControllerRef.current = controller;
     const timeoutId = setTimeout(() => controller.abort(), 30000);
+    timeoutIdRef.current = timeoutId;
 
     try {
       const res = await fetch(`${API_CONFIG.BASE_URL}/aadhaar/upload`, {
