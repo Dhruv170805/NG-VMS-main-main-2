@@ -284,3 +284,14 @@
 .spinning {
   animation: spin 1s linear infinite;
 }
+
+/* Missing CSS Classes automatically resolved */
+.no_pass_card { background: rgba(255, 255, 255, 0.6); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.8); border-radius: 24px; padding: 40px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; max-width: 400px; margin: 40px auto; }
+.alert_icon_wrapper { width: 64px; height: 64px; border-radius: 50%; background: rgba(255, 59, 48, 0.1); color: var(--apple-red); display: flex; align-items: center; justify-content: center; margin-bottom: 20px; }
+.no_pass_title { font-size: 1.5rem; font-weight: 800; color: var(--text-primary); margin-bottom: 10px; }
+.no_pass_text { font-size: 0.95rem; color: var(--text-secondary); opacity: 0.8; margin-bottom: 24px; line-height: 1.5; }
+.valid_period_row { display: flex; flex-direction: column; gap: 4px; margin-top: 12px; padding-top: 12px; border-top: 1px dashed rgba(255, 255, 255, 0.2); }
+.v_label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 1px; opacity: 0.6; font-weight: 800; }
+.valid_period_dates { font-size: 0.8rem; font-family: 'SF Mono', monospace; font-weight: 600; opacity: 0.9; }
+.back_footer_branding { margin-top: auto; padding-top: 20px; text-align: center; font-size: 0.7rem; font-weight: 800; opacity: 0.4; letter-spacing: 2px; text-transform: uppercase; }
+.pass_card_wrapper { perspective: 1000px; display: flex; justify-content: center; align-items: center; }

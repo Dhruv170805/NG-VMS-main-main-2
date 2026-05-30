@@ -311,3 +311,6 @@
   .login_header h2 { font-size: 1.1rem; }
   .glass_card_v2 { padding: 15px; }
 }
+
+/* Missing CSS Classes automatically resolved */
+.error_banner { background: rgba(255, 59, 48, 0.1); color: var(--apple-red); border: 1px solid rgba(255, 59, 48, 0.2); padding: 12px 16px; border-radius: 12px; font-size: 0.9rem; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 10px; width: 100%; }
