@@ -62,7 +62,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
 
     // Accessing the site via an IP address should use empty string (triggering backend auto-bind)
-    if (isIpAddress(hostname) || hostname === 'localhost' || hostname.endsWith('.local') || hostname.endsWith('.lan') || hostname.endsWith('.internal')) {
+    if (isIpAddress(hostname) || hostname === 'localhost' || hostname.endsWith('.local') || hostname.endsWith('.lan') || hostname.endsWith('.internal') || hostname.endsWith('.printele') || hostname.endsWith('.ngvms') || hostname.endsWith('.vms') || hostname.endsWith('.pe')) {
       return '';
     }
 

@@ -175,7 +175,7 @@ const io = new Server(server, {
       try {
         const hostname = new URL(origin).hostname;
         const isIp = /^\d{1,3}(?:\.\d{1,3}){3}$/.test(hostname) || hostname.includes(':') || hostname === 'localhost' || hostname === '127.0.0.1';
-        const isDynamicLocal = hostname.endsWith('.local') || hostname.endsWith('.lan') || hostname.endsWith('.home') || hostname.endsWith('.internal');
+        const isDynamicLocal = hostname.endsWith('.local') || hostname.endsWith('.lan') || hostname.endsWith('.home') || hostname.endsWith('.internal') || hostname.endsWith('.printele') || hostname.endsWith('.ngvms') || hostname.endsWith('.vms') || hostname.endsWith('.pe');
 
         if (isIp || isDynamicLocal || process.env.DEPLOYMENT_MODE === 'ON_PREM') {
           callback(null, true);

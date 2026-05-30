@@ -25,7 +25,7 @@ export const tenantMiddleware = async (req: Request, res: Response, next: NextFu
       const hostname = new URL(`http://${hostStr}`).hostname;
       
       const isIp = /^\d{1,3}(?:\.\d{1,3}){3}$/.test(hostname) || hostname === 'localhost';
-      const isDynamicLocal = hostname.endsWith('.local') || hostname.endsWith('.lan') || hostname.endsWith('.internal');
+      const isDynamicLocal = hostname.endsWith('.local') || hostname.endsWith('.lan') || hostname.endsWith('.internal') || hostname.endsWith('.printele') || hostname.endsWith('.ngvms') || hostname.endsWith('.vms') || hostname.endsWith('.pe');
       
       if (!isIp && !isDynamicLocal) {
         const parts = hostname.split('.');

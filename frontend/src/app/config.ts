@@ -31,6 +31,10 @@ const isLocalHostname = (hostname: string): boolean => {
   // Local/Private domain extensions
   if (
     hostname.endsWith('.local') ||
+    hostname.endsWith('.printele') ||
+    hostname.endsWith('.ngvms') ||
+    hostname.endsWith('.vms') ||
+    hostname.endsWith('.pe') ||
     hostname.endsWith('.lan') ||
     hostname.endsWith('.home') ||
     hostname.endsWith('.internal')

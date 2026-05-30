@@ -40,7 +40,7 @@ export const getTenantId = () => {
   const hostname = window.location.hostname;
   
   // If it's an IP address or local network domain, do not split it as a subdomain
-  if (/^\d{1,3}(?:\.\d{1,3}){3}$/.test(hostname) || hostname === 'localhost' || hostname.endsWith('.local') || hostname.endsWith('.lan') || hostname.endsWith('.internal')) {
+  if (/^\d{1,3}(?:\.\d{1,3}){3}$/.test(hostname) || hostname === 'localhost' || hostname.endsWith('.local') || hostname.endsWith('.lan') || hostname.endsWith('.internal') || hostname.endsWith('.printele') || hostname.endsWith('.ngvms') || hostname.endsWith('.vms') || hostname.endsWith('.pe')) {
     return '';
   }
 

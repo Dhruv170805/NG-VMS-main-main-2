@@ -13,7 +13,7 @@ export const fetcher = async (url: string) => {
     
     const hostname = window.location.hostname;
     if (hostname.includes('.onrender.com') || hostname.includes('.vercel.app')) return '';
-    if (/^\d{1,3}(?:\.\d{1,3}){3}$/.test(hostname) || hostname.includes(':') || hostname === 'localhost' || hostname.endsWith('.local') || hostname.endsWith('.lan') || hostname.endsWith('.internal')) return '';
+    if (/^\d{1,3}(?:\.\d{1,3}){3}$/.test(hostname) || hostname.includes(':') || hostname === 'localhost' || hostname.endsWith('.local') || hostname.endsWith('.lan') || hostname.endsWith('.internal') || hostname.endsWith('.printele') || hostname.endsWith('.ngvms') || hostname.endsWith('.vms') || hostname.endsWith('.pe')) return '';
     
     const parts = hostname.split('.');
     if (parts.length > 2) return parts[0];

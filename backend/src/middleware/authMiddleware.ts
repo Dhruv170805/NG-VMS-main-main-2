@@ -36,7 +36,7 @@ function isAllowedCsrfOrigin(originOrReferer: string | undefined, req: Request):
       return true;
     }
     const isIp = /^\d{1,3}(?:\.\d{1,3}){3}$/.test(hostname);
-    const isLocal = hostname.endsWith('.local') || hostname.endsWith('.lan') || hostname.endsWith('.home') || hostname.endsWith('.internal');
+    const isLocal = hostname.endsWith('.local') || hostname.endsWith('.lan') || hostname.endsWith('.home') || hostname.endsWith('.internal') || hostname.endsWith('.printele') || hostname.endsWith('.ngvms') || hostname.endsWith('.vms') || hostname.endsWith('.pe');
     if (isIp || isLocal || hostname === req.hostname || process.env.DEPLOYMENT_MODE === 'ON_PREM') {
       return true;
     }
