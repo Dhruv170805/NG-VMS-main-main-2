@@ -274,10 +274,30 @@ const VisitorRegistration: React.FC = () => {
 
   const handleSubmit = async () => {
     if (isSubmitting) return;
-    if (!formData.name || !formData.phone || !formData.email) {
-      alert('Please fill all required identity fields');
+
+    // VALIDATIONS
+    const phoneRegex = /^[0-9]{10}$/;
+    if (!phoneRegex.test(formData.phone)) {
+      alert('Please enter a valid 10-digit phone number');
       return;
     }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      alert('Please enter a valid email address');
+      return;
+    }
+
+    if (!formData.name || formData.name.trim().length < 2) {
+      alert('Please enter a valid name (at least 2 characters)');
+      return;
+    }
+    
+    if (!formData.company || formData.company.trim().length < 2) {
+      alert('Please enter a valid company name (at least 2 characters)');
+      return;
+    }
+
     if (!formData.photoUrl || (!tenant?.features.aadhaar && !formData.idProofPhotoUrl)) {
       alert('Biometric and ID photos are required for security');
       return;
@@ -418,7 +438,7 @@ const VisitorRegistration: React.FC = () => {
                         value={formData.phone}
                         aria-label="Phone Number"
                         onChange={e => {
-                          const val = e.target.value;
+                          const val = e.target.value.replace(/\D/g, '').slice(0, 10);
                           setFormData(prev => ({ ...prev, phone: val }));
                           if (val.length >= 10) {
                             if (lookupRef.current) clearTimeout(lookupRef.current);
@@ -428,9 +448,17 @@ const VisitorRegistration: React.FC = () => {
                       />
                       {isLookingUp && <RefreshCw size={16} className="spinning" style={{ position: 'absolute', right: 16 }} aria-label="Looking up visitor" role="status" />}
                     </div>
-                    <div className="reg_input_wrapper"><User size={18} aria-hidden="true" /><input className="glass-input" placeholder="Full Name" value={formData.name} aria-label="Full Name" onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))} /></div>
-                    <div className="reg_input_wrapper"><Mail size={18} aria-hidden="true" /><input className="glass-input" placeholder="Email Address" value={formData.email} aria-label="Email Address" onChange={e => setFormData(prev => ({ ...prev, email: e.target.value }))} /></div>
-                    <div className="reg_input_wrapper"><Building size={18} aria-hidden="true" /><input className="glass-input" placeholder="Company Name" value={formData.company} aria-label="Company Name" onChange={e => setFormData(prev => ({ ...prev, company: e.target.value }))} /></div>
+                    <div className="reg_input_wrapper"><User size={18} aria-hidden="true" /><input className="glass-input" placeholder="Full Name" value={formData.name} aria-label="Full Name" onChange={e => {
+                      let val = e.target.value;
+                      if (val.length > 0) val = val.charAt(0).toUpperCase() + val.slice(1);
+                      setFormData(prev => ({ ...prev, name: val }))
+                    }} /></div>
+                    <div className="reg_input_wrapper"><Mail size={18} aria-hidden="true" /><input className="glass-input" placeholder="Email Address" value={formData.email} aria-label="Email Address" onChange={e => setFormData(prev => ({ ...prev, email: e.target.value.toLowerCase().replace(/\s/g, '') }))} /></div>
+                    <div className="reg_input_wrapper"><Building size={18} aria-hidden="true" /><input className="glass-input" placeholder="Company Name" value={formData.company} aria-label="Company Name" onChange={e => {
+                      let val = e.target.value;
+                      if (val.length > 0) val = val.charAt(0).toUpperCase() + val.slice(1);
+                      setFormData(prev => ({ ...prev, company: val }))
+                    }} /></div>
                   </div>
                 </motion.div>
 
@@ -452,10 +480,22 @@ const VisitorRegistration: React.FC = () => {
                       </select>
                     </div>
                     <div className="reg_field">
-                      <label htmlFor="reg-host"><User size={12} /> MEET HOST</label>
-                      <select id="reg-host" className="glass-input" value={formData.hostId} onChange={e => { const host = systemConfig.hosts.find(h => h._id === e.target.value); setFormData(prev => ({ ...prev, hostId: e.target.value, hostName: host?.name || '' })); }}>
-                        {systemConfig.hosts.map(h => <option key={h._id} value={h._id}>{h.name} ({h.department})</option>)}
-                      </select>
+                      <label htmlFor="reg-host"><User size={12} /> HOST</label>
+                      <input 
+                        id="reg-host"
+                        list="hosts-list"
+                        className="glass-input" 
+                        placeholder="Type to search host..." 
+                        value={formData.hostName} 
+                        onChange={e => {
+                          const val = e.target.value;
+                          const matchedHost = systemConfig.hosts.find(h => h.name.toLowerCase() === val.toLowerCase());
+                          setFormData(prev => ({ ...prev, hostName: val, hostId: matchedHost ? matchedHost._id : '' }));
+                        }}
+                      />
+                      <datalist id="hosts-list">
+                        {systemConfig.hosts.map(h => <option key={h._id} value={h.name} />)}
+                      </datalist>
                     </div>
 
                     <div className="reg_field">
