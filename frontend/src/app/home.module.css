@@ -1,11 +1,16 @@
 .home_container {
-  min-height: 100vh;
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   display: flex;
   flex-direction: column;
-  padding: 30px 40px;
-  position: relative;
-  overflow-y: auto;
+  justify-content: center;
+  align-items: center;
+  padding: clamp(10px, 2vh, 30px) clamp(10px, 3vw, 40px);
+  overflow: hidden;
   background: transparent;
+  box-sizing: border-box;
 }
 
 /* Dynamic Background Elements */
@@ -27,32 +32,9 @@
   animation: float 20s infinite alternate ease-in-out;
 }
 
-.circle_1 {
-  width: 600px;
-  height: 600px;
-  background: var(--apple-blue);
-  top: -100px;
-  right: -100px;
-}
-
-.circle_2 {
-  width: 500px;
-  height: 500px;
-  background: var(--apple-purple);
-  bottom: -50px;
-  left: -100px;
-  animation-delay: -5s;
-}
-
-.circle_3 {
-  width: 400px;
-  height: 400px;
-  background: var(--apple-green);
-  top: 40%;
-  left: 20%;
-  animation-delay: -10s;
-  opacity: 0.1;
-}
+.circle_1 { width: clamp(200px, 40vmin, 600px); height: clamp(200px, 40vmin, 600px); background: var(--apple-blue); top: -10vh; right: -10vw; }
+.circle_2 { width: clamp(150px, 35vmin, 500px); height: clamp(150px, 35vmin, 500px); background: var(--apple-purple); bottom: -5vh; left: -10vw; animation-delay: -5s; }
+.circle_3 { width: clamp(100px, 30vmin, 400px); height: clamp(100px, 30vmin, 400px); background: var(--apple-green); top: 40%; left: 20%; animation-delay: -10s; opacity: 0.1; }
 
 @keyframes float {
   0% { transform: translate(0, 0) scale(1); }
@@ -63,31 +45,35 @@
 
 .home_header {
   text-align: center;
-  margin-bottom: 25px;
+  margin-bottom: clamp(10px, 2vh, 30px);
   z-index: 2;
+  width: 100%;
+  flex-shrink: 0;
 }
 
 .logo_wrap {
   font-weight: 900;
   color: var(--apple-blue);
-  font-size: 2.2rem;
+  font-size: clamp(1.4rem, 3.5vh, 2.2rem);
   letter-spacing: 2px;
-  margin-bottom: 8px;
+  margin-bottom: clamp(2px, 0.5vh, 8px);
   text-transform: uppercase;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 16px;
+  gap: clamp(8px, 1.5vh, 16px);
 }
 
 .logo_wrap img {
   object-fit: contain;
   border-radius: 12px;
   box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  width: clamp(36px, 5vh, 60px) !important;
+  height: clamp(36px, 5vh, 60px) !important;
 }
 
 .home_header p {
-  font-size: 1.1rem;
+  font-size: clamp(0.75rem, 1.8vh, 1.1rem);
   font-weight: 500;
   color: var(--text-secondary);
   letter-spacing: -0.2px;
@@ -95,20 +81,22 @@
 
 .split_layout {
   display: flex;
-  gap: 30px;
+  gap: clamp(10px, 3vw, 40px);
   width: 100%;
-  max-width: 1200px;
+  max-width: 1100px;
   margin: 0 auto;
   z-index: 2;
+  align-items: stretch;
+  justify-content: center;
   flex: 1;
-  min-height: 0; /* Allow flex children to shrink */
+  min-height: 0;
 }
 
 .left_panel, .right_panel {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 15px;
+  width: 100%;
   min-height: 0;
 }
 
@@ -116,14 +104,16 @@
   background: rgba(255, 255, 255, 0.7);
   backdrop-filter: blur(40px) saturate(180%);
   -webkit-backdrop-filter: blur(40px) saturate(180%);
-  border-radius: 28px;
+  border-radius: clamp(16px, 3vh, 28px);
   border: 1px solid rgba(255, 255, 255, 0.8);
   box-shadow: 0 15px 35px rgba(0,0,0,0.05);
-  padding: 30px;
+  padding: clamp(15px, 3vh, 40px) clamp(15px, 3vw, 40px);
   height: 100%;
   display: flex;
   flex-direction: column;
-  transition: transform 0.1s ease-out; /* For tilt micro-interaction */
+  justify-content: center;
+  transition: transform 0.1s ease-out;
+  min-height: 0;
 }
 
 .scanner_section {
@@ -132,17 +122,19 @@
   align-items: center;
   justify-content: center;
   text-align: center;
-  gap: 20px;
+  gap: clamp(10px, 2vh, 20px);
   flex: 1;
+  min-height: 0;
 }
 
 .qr_display_wrapper {
   position: relative;
-  width: 260px;
-  height: 260px;
+  width: clamp(120px, 25vh, 260px);
+  height: clamp(120px, 25vh, 260px);
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 
 .qr_bg_glow {
@@ -150,7 +142,7 @@
   width: 100%;
   height: 100%;
   background: var(--apple-blue);
-  filter: blur(50px);
+  filter: blur(clamp(20px, 4vh, 50px));
   opacity: 0.2;
   border-radius: 50%;
   animation: qrGlow 4s infinite alternate;
@@ -164,8 +156,8 @@
 .qr_inner_card {
   position: relative;
   background: white;
-  padding: 18px;
-  border-radius: 24px;
+  padding: clamp(8px, 1.5vh, 18px);
+  border-radius: clamp(12px, 2vh, 24px);
   box-shadow: 0 12px 40px rgba(0,0,0,0.08);
   border: 1px solid rgba(0,0,0,0.05);
   z-index: 1;
@@ -173,6 +165,8 @@
   align-items: center;
   justify-content: center;
   overflow: hidden;
+  width: 100%;
+  height: 100%;
 }
 
 .scanning_line {
@@ -194,8 +188,8 @@
 }
 
 .status_section {
-  margin-top: 20px;
-  padding-top: 25px;
+  margin-top: clamp(10px, 2vh, 20px);
+  padding-top: clamp(10px, 2vh, 25px);
   border-top: 1px solid rgba(0, 0, 0, 0.08);
   display: flex;
   flex-direction: column;
@@ -207,7 +201,7 @@
 .track_form {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: clamp(8px, 1.5vh, 12px);
   width: 100%;
   max-width: 320px;
 }
@@ -219,28 +213,31 @@
   justify-content: center;
   align-items: center;
   text-align: center;
+  min-height: 0;
 }
 
 .login_header {
-  margin-bottom: 25px;
+  margin-bottom: clamp(15px, 2.5vh, 25px);
   display: flex;
   flex-direction: column;
   align-items: center;
+  flex-shrink: 0;
 }
 
 .login_header h2 {
-  font-size: 1.8rem;
+  font-size: clamp(1.2rem, 3vh, 1.8rem);
   font-weight: 800;
   letter-spacing: -0.8px;
-  margin-bottom: 6px;
+  margin-bottom: clamp(2px, 0.5vh, 6px);
 }
 
 .login_form {
   display: flex;
   flex-direction: column;
-  gap: 15px;
+  gap: clamp(8px, 1.5vh, 15px);
   width: 100%;
   max-width: 320px;
+  min-height: 0;
 }
 
 .login_form label {
@@ -251,18 +248,20 @@
   width: 100%;
   height: 1px;
   background: rgba(0, 0, 0, 0.08);
-  margin: 15px 0;
+  margin: clamp(8px, 1.5vh, 15px) 0;
 }
 
 .home_footer {
-  margin-top: 20px;
+  margin-top: clamp(10px, 2vh, 30px);
   text-align: center;
-  font-size: 0.75rem;
+  font-size: clamp(0.55rem, 1.2vh, 0.75rem);
   font-weight: 700;
   letter-spacing: 1px;
   text-transform: uppercase;
   opacity: 0.4;
   z-index: 2;
+  width: 100%;
+  flex-shrink: 0;
 }
 
 .shimmer_effect {
@@ -292,20 +291,23 @@
 }
 
 @media (max-width: 768px) {
-  .home_container { padding: 20px; min-height: 100vh; height: auto; overflow-y: auto; }
-  .split_layout { flex-direction: column; gap: 20px; }
-  .circle_1 { width: 300px; height: 300px; top: -50px; right: -50px; }
-  .circle_2 { width: 250px; height: 250px; bottom: -30px; left: -50px; }
-  .logo_wrap { font-size: 1.5rem; gap: 12px; }
-  .logo_wrap img { width: 40px !important; height: 40px !important; }
-  .qr_display_wrapper { width: 220px; height: 220px; }
-  .glass_card_v2 { padding: 24px; border-radius: 24px; }
-  .login_header h2 { font-size: 1.5rem; }
+  .home_container { padding: clamp(10px, 2vh, 20px); overflow: hidden; }
+  .split_layout { flex-direction: column; gap: clamp(10px, 2vh, 20px); }
+  .glass_card_v2 { padding: clamp(15px, 2.5vh, 24px); }
+  .qr_display_wrapper { width: clamp(100px, 20vh, 220px); height: clamp(100px, 20vh, 220px); }
+  
+  /* Make sure everything squishes super tightly on very small screens */
+  .home_header p { display: none; } /* Hide subtitle on mobile to save vertical space */
+  .status_section { margin-top: clamp(5px, 1vh, 10px); padding-top: clamp(5px, 1vh, 10px); }
 }
 
-@media (max-width: 480px) {
-  .logo_wrap { font-size: 1.25rem; gap: 10px; }
-  .logo_wrap img { width: 36px !important; height: 36px !important; }
-  .qr_display_wrapper { width: 180px; height: 180px; }
-  .glass_card_v2 { padding: 20px; }
+@media (max-height: 600px) and (max-width: 768px) {
+  /* Ultra squish mode for landscape mobile or keyboard pop-up */
+  .split_layout { flex-direction: row; }
+  .home_header p { display: none; }
+  .home_footer { display: none; }
+  .home_header { margin-bottom: 10px; }
+  .qr_display_wrapper { width: 100px; height: 100px; }
+  .login_header h2 { font-size: 1.1rem; }
+  .glass_card_v2 { padding: 15px; }
 }

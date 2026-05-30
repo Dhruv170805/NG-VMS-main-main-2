@@ -187,7 +187,7 @@ export const SettingsTab: React.FC<Props> = ({
           <p className={styles.config_desc}>Configure printing policies and terminal-specific security folders.</p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
             <div className={styles.input_group_stacked}>
-              <label style={{ fontWeight: 800, color: 'var(--apple-blue)' }}>Pass Printing Policy</label>
+              <label style={{ fontWeight: 800, color: '#000' }}>Pass Printing Policy</label>
               <p className={styles.config_desc} style={{ fontSize: '0.75rem', marginBottom: '8px' }}>Restricts pass printing to Guard terminals only. Digital pass remains compulsory.</p>
               <select
                 className="glass-input"
