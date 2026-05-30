@@ -122,7 +122,7 @@ test.describe('NG-VMS Admin Dashboard UI Tests', () => {
     await page.waitForTimeout(400);
     // User management shows "Add User" and "Import Users" buttons
     await expect(page.locator('button:has-text("Add User")')).toBeVisible({ timeout: 8000 });
-    await expect(page.locator('button:has-text("Import Users")')).toBeVisible({ timeout: 8000 });
+    await expect(page.locator('button.small:has-text("Import Users")')).toBeVisible({ timeout: 8000 });
   });
 
   test('should switch to Traffic Analytics tab and show an SVG chart', async ({ page }) => {
