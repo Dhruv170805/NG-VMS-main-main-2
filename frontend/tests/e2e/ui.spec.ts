@@ -120,9 +120,9 @@ test.describe('NG-VMS Admin Dashboard UI Tests', () => {
   test('should switch to User Management tab', async ({ page }) => {
     await page.locator('nav button:has-text("User Management")').click();
     await page.waitForTimeout(400);
-    // User management shows "Create Users" and "Host PRIVILEGES" buttons
-    await expect(page.locator('button:has-text("Create Users")')).toBeVisible({ timeout: 8000 });
-    await expect(page.locator('button:has-text("Host PRIVILEGES")')).toBeVisible({ timeout: 8000 });
+    // User management shows "Add User" and "Import Users" buttons
+    await expect(page.locator('button:has-text("Add User")')).toBeVisible({ timeout: 8000 });
+    await expect(page.locator('button:has-text("Import Users")')).toBeVisible({ timeout: 8000 });
   });
 
   test('should switch to Traffic Analytics tab and show an SVG chart', async ({ page }) => {
@@ -182,12 +182,12 @@ test.describe('NG-VMS Guard Terminal UI Tests', () => {
 
   test('should show APPLIED, PENDING, APPROVED stat pills', async ({ page }) => {
     await expect(page.locator('button.stat_pill:has-text("APPLIED")')).toBeVisible();
-    await expect(page.locator('button.stat_pill:has-text("PENDING")')).toBeVisible();
+    await expect(page.locator('.pending_pill')).toBeVisible();
     await expect(page.locator('button.stat_pill:has-text("APPROVED")')).toBeVisible();
   });
 
   test('should show all status filter pills', async ({ page }) => {
-    const pills = ['FORWARDED', 'REJECTED', 'GATE IN', 'MEET IN', 'MEET OUT', 'GATE OUT', 'OVER STAY'];
+    const pills = ['PENDING AT HOST', 'REJECTED', 'GATE IN', 'MEET IN', 'MEET OUT', 'GATE OUT', 'OVER STAY'];
     for (const pill of pills) {
       await expect(page.locator(`button.stat_pill:has-text("${pill}")`)).toBeVisible();
     }

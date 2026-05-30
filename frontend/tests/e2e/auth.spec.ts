@@ -56,7 +56,7 @@ test.describe('NG-VMS Multi-Role Portal Authentication & Navigation Tests', () =
 
     // Verify stats header counters
     await expect(page.locator('text=APPLIED')).toBeVisible();
-    await expect(page.locator('text=PENDING')).toBeVisible();
+    await expect(page.locator('.pending_pill')).toBeVisible();
     await expect(page.locator('text=APPROVED')).toBeVisible();
   });
 
