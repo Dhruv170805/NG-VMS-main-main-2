@@ -5,6 +5,7 @@ import crypto from 'crypto';
 import Employee from '../employee/employee.model';
 import { sendNotification } from '../../utils/notificationService';
 import redisConnection from '../../config/redis';
+import { CacheService } from '../../services/cache.service';
 
 export class AuthService {
   static async generateTokens(id: string, name: string, role: string, tenantId: string) {
@@ -66,6 +67,8 @@ export class AuthService {
       requiresPasswordChange: true
     });
 
+    await CacheService.invalidatePattern(`tenant:${tenantId}:employee:*`);
+
     const { accessToken, refreshToken } = await this.generateTokens(
       employee._id.toString(),
       employee.name,
@@ -100,6 +103,8 @@ export class AuthService {
       tenantId,
       requiresPasswordChange: true
     });
+
+    await CacheService.invalidatePattern(`tenant:${tenantId}:employee:*`);
 
     return { employee };
   }

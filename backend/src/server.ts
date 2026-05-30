@@ -82,7 +82,7 @@ const allowedOrigins = new Set(
 const corsOptions: cors.CorsOptions = {
   origin: (origin, callback) => {
     const host = process.env.SERVER_HOST || 'localhost';
-    
+
     // Allow server-to-server (no Origin) and explicitly allowed origins
     if (!origin || allowedOrigins.has(origin)) {
       callback(null, true);
@@ -90,11 +90,11 @@ const corsOptions: cors.CorsOptions = {
       try {
         const originUrl = new URL(origin);
         const hostname = originUrl.hostname;
-        
+
         // Dynamic Origin Detection: Allow if it matches the base domain or is a local hostname
         const isIp = /^\d{1,3}(?:\.\d{1,3}){3}$/.test(hostname) || hostname.includes(':') || hostname === 'localhost' || hostname === '127.0.0.1';
-        const isLocal = hostname.endsWith('.local') || hostname.endsWith('.lan') || hostname.endsWith('.home') || hostname.endsWith('.patel') || hostname.endsWith('.internal');
-        
+        const isLocal = hostname.endsWith('.local') || hostname.endsWith('.lan') || hostname.endsWith('.home') || hostname.endsWith('.internal') || hostname.endsWith('.printele') || hostname.endsWith('.ngvms') || hostname.endsWith('.vms') || hostname.endsWith('.pe');
+
         // Dynamic Origin Detection: Allow if it matches the base domain or is a local hostname
         if (isIp || isLocal || hostname === baseDomain || hostname.endsWith('.' + baseDomain) || process.env.DEPLOYMENT_MODE === 'ON_PREM') {
           callback(null, true);
@@ -176,18 +176,18 @@ const io = new Server(server, {
         const hostname = new URL(origin).hostname;
         const isIp = /^\d{1,3}(?:\.\d{1,3}){3}$/.test(hostname) || hostname.includes(':') || hostname === 'localhost' || hostname === '127.0.0.1';
         const isDynamicLocal = hostname.endsWith('.local') || hostname.endsWith('.lan') || hostname.endsWith('.home') || hostname.endsWith('.internal');
-        
+
         if (isIp || isDynamicLocal || process.env.DEPLOYMENT_MODE === 'ON_PREM') {
           callback(null, true);
           return;
         }
-        
+
         // Allowed domains check
         if (hostname === baseDomain || hostname.endsWith('.' + baseDomain)) {
           callback(null, true);
           return;
         }
-      } catch (err) {}
+      } catch (err) { }
       callback(new Error('CORS: Origin not allowed'));
     },
     methods: ['GET', 'POST'],
@@ -266,7 +266,7 @@ const MONGODB_URI = process.env.NODE_ENV === 'test'
 
 connectDB(MONGODB_URI)
   .then(async () => {
-    
+
     // Initialize BullMQ background queues
     await initQueues();
 
@@ -289,7 +289,7 @@ app.get('/', (_req, res) =>
 
 const registerRoutes = (prefix: string) => {
   app.use(`${prefix}/bootstrap`, bootstrapRoutes); // Public
-  
+
   app.use(`${prefix}/auth`, tenantMiddleware, authRoutes);
   app.use(`${prefix}/visitors`, tenantMiddleware, visitorRoutes);
   app.use(`${prefix}/system`, tenantMiddleware, systemRoutes);
