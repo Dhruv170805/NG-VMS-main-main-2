@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import useSWR from 'swr';
 import { useRouter } from 'next/navigation';
 import { fetcher } from '@/utils/fetcher';
@@ -131,6 +131,12 @@ export const useAdminDashboard = () => {
   });
   const { user, isLoading } = useAuth();
   const [lastEvent, setLastEvent] = useState<string | null>(null);
+  const toastTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isMounted = useRef(true);
+
+  useEffect(() => {
+    return () => { isMounted.current = false; };
+  }, []);
 
   // --- SWR Data Fetching ---
   const visitorsUrl = activeTab === 'overview' ? buildUrl(API_CONFIG.ENDPOINTS.VISITORS, { limit: '500', ...(searchQuery ? { search: searchQuery } : {}) }) : null;
@@ -226,9 +232,14 @@ export const useAdminDashboard = () => {
   useEffect(() => {
     if (!socket) return;
 
+    const showToast = (msg: string) => {
+      setLastEvent(msg);
+      if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+      toastTimeoutRef.current = setTimeout(() => setLastEvent(null), 3000);
+    };
+
     const handleStatsUpdate = (data: any) => {
-      setLastEvent(`System Update: ${data.type}`);
-      setTimeout(() => setLastEvent(null), 3000);
+      showToast(`System Update: ${data.type}`);
       if (data.type === 'new_visitor') {
          fetchVisitors();
       }
@@ -236,8 +247,7 @@ export const useAdminDashboard = () => {
 
     const handleVisitorUpdate = (updatedVisitor: Visitor) => {
       if (updatedVisitor.status === 'APPROVED') {
-        setLastEvent(`Visitor Approved: ${updatedVisitor.name}`);
-        setTimeout(() => setLastEvent(null), 3000);
+        showToast(`Visitor Approved: ${updatedVisitor.name}`);
       }
       setVisitors(prev => prev.map(v => v._id === updatedVisitor._id ? updatedVisitor : v));
     };
@@ -287,7 +297,7 @@ export const useAdminDashboard = () => {
         setUploadStatus({ message: 'NGS License Updated Successfully.', type: 'success' });
         fetchLicense();
         // Refresh page to apply feature changes
-        setTimeout(() => window.location.reload(), 2000);
+        setTimeout(() => { if (isMounted.current) window.location.reload(); }, 2000);
       } else {
         setUploadStatus({ message: `Activation Failed: ${data.message}`, type: 'error' });
       }
@@ -311,7 +321,9 @@ export const useAdminDashboard = () => {
         },
         credentials: 'include' 
       });
-    } catch (err) {}
+    } catch (err) {
+      console.error('Logout error', err);
+    }
     localStorage.removeItem('user');
     router.push('/login');
   };
@@ -375,7 +387,9 @@ export const useAdminDashboard = () => {
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
       }
-    } catch (error) {}
+    } catch (error) {
+      alert('Failed to download purpose report');
+    }
   };
 
   const saveSetting = async (key: string, value: any) => {
@@ -459,7 +473,9 @@ export const useAdminDashboard = () => {
         body: JSON.stringify({ idNumberHash: visitor.idNumberHash || visitor._id, name: visitor.name, company: visitor.company, visitorId: visitor._id, reason })
       });
       if (res.ok) alert('Entity blacklisted successfully.');
-    } catch (err) {}
+    } catch (err: any) {
+      alert('Failed to blacklist entity: ' + (err.message || 'Network error'));
+    }
   };
 
   const fetchEncryptedId = async (id: string, name: string) => {
@@ -474,7 +490,9 @@ export const useAdminDashboard = () => {
         const data = await res.json();
         setSelectedPhoto({ url: data.image, title: `Secure Vault ID: ${name}` });
       }
-    } catch (err) {}
+    } catch (err: any) {
+      alert('Failed to fetch secure ID: ' + (err.message || 'Network error'));
+    }
   };
 
   const removeEmployee = async (id: string) => {
@@ -488,7 +506,9 @@ export const useAdminDashboard = () => {
         credentials: 'include'
       });
       if (res.ok) setUsers(prev => prev.filter(p => p._id !== id));
-    } catch (err) {}
+    } catch (err: any) {
+      alert('Failed to remove employee: ' + (err.message || 'Network error'));
+    }
   };
 
   const toggleHost = async (id: string) => {
@@ -501,7 +521,9 @@ export const useAdminDashboard = () => {
         credentials: 'include'
       });
       if (res.ok) setUsers(prev => prev.map(item => item._id === id ? { ...item, isHost: !item.isHost } : item));
-    } catch (err) {}
+    } catch (err: any) {
+      alert('Failed to toggle host: ' + (err.message || 'Network error'));
+    }
   };
 
   const bulkToggleHost = async (isHost: boolean) => {
@@ -520,7 +542,9 @@ export const useAdminDashboard = () => {
         body: JSON.stringify({ ids: filteredIds, isHost })
       });
       if (res.ok) setUsers(prev => prev.map(item => filteredIds.includes(item._id) ? { ...item, isHost } : item));
-    } catch (err) {}
+    } catch (err: any) {
+      alert('Failed to bulk toggle host: ' + (err.message || 'Network error'));
+    }
   };
 
   const fetchEmployeeStats = async (id: string) => {
@@ -543,7 +567,9 @@ export const useAdminDashboard = () => {
         const data = await res.json();
         setEmployeeStats(prev => ({ ...prev, [id]: data }));
       }
-    } catch (err) {}
+    } catch (err: any) {
+      alert('Failed to fetch stats: ' + (err.message || 'Network error'));
+    }
   };
 
   const toggleBlacklist = async (id: string) => {
@@ -556,7 +582,9 @@ export const useAdminDashboard = () => {
         credentials: 'include'
       });
       setBlacklist(prev => prev.map(item => item._id === id ? { ...item, active: !item.active } : item));
-    } catch (err) {}
+    } catch (err: any) {
+      alert('Failed to toggle blacklist entry: ' + (err.message || 'Network error'));
+    }
   };
 
   const deleteFromBlacklist = async (id: string) => {
@@ -570,7 +598,9 @@ export const useAdminDashboard = () => {
         credentials: 'include'
       });
       if (res.ok) setBlacklist(prev => prev.filter(item => item._id !== id));
-    } catch (err) {}
+    } catch (err: any) {
+      alert('Failed to delete blacklist entry: ' + (err.message || 'Network error'));
+    }
   };
 
   // --- Derived State ---

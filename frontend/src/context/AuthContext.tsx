@@ -1,5 +1,5 @@
 "use client";
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { API_CONFIG } from '@/app/config';
 import { useTenant } from '@/context/TenantContext';
@@ -36,7 +36,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const pathname = usePathname();
   const { getTenantId } = useTenant();
 
-  const checkAuth = async () => {
+  const isMounted = useRef(true);
+
+  useEffect(() => {
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
+
+  const checkAuth = useCallback(async () => {
     try {
       const headers: any = {
         'x-tenant-id': getTenantId()
@@ -47,6 +55,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         credentials: 'include',
         cache: 'no-store'
       });
+      if (!isMounted.current) return;
       if (res.ok) {
         const data = await res.json();
         setUser({ id: data._id, ...data });
@@ -54,16 +63,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setUser(null);
       }
     } catch (err) {
-      setUser(null);
+      if (isMounted.current) setUser(null);
     } finally {
-      setIsLoading(false);
+      if (isMounted.current) setIsLoading(false);
     }
-  };
+  }, [getTenantId]);
 
   useEffect(() => {
     checkAuth();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [pathname, checkAuth]);
 
   const logout = async () => {
     try {

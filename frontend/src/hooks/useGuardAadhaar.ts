@@ -74,7 +74,7 @@ export const useGuardAadhaar = (
   const renderAndUploadPdf = async (base64Pdf: string, visitorId: string, password?: string) => {
     try {
       const pdfjsLib = (window as any).pdfjsLib;
-      if (!pdfjsLib) return;
+      if (!pdfjsLib) throw new Error('PDF library is still loading. Please try again in a moment.');
 
       const binaryString = atob(base64Pdf);
       const len = binaryString.length;
@@ -104,8 +104,10 @@ export const useGuardAadhaar = (
         },
         body: JSON.stringify({ image: dataUrl }),
         credentials: 'include'
-      });    } catch (err) {
+      });
+    } catch (err: any) {
       console.error('PDF render failed:', err);
+      alert(err.message || 'Failed to render PDF ID card.');
     }
   };
 

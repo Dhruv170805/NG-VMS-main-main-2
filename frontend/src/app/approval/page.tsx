@@ -73,6 +73,12 @@ const EmployeeApproval: React.FC = () => {
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [historySearch, setHistorySearch] = useState('');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 60000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     if (authLoading) return; // Wait for initial /me auth fetch to complete
@@ -126,7 +132,7 @@ const EmployeeApproval: React.FC = () => {
   const filteredVisitors = useMemo(() => {
     let list = visitors;
     if (statusFilter === 'OVERSTAY') {
-      list = list.filter(v => ['GATE_IN', 'MEET_IN', 'MEET_OUT'].includes(v.status) && v.expectedCheckout && new Date(v.expectedCheckout) < new Date());
+      list = list.filter(v => ['GATE_IN', 'MEET_IN', 'MEET_OUT'].includes(v.status) && v.expectedCheckout && new Date(v.expectedCheckout) < currentTime);
     } else if (statusFilter === 'GATE_OUT') {
       list = history;
     } else if (statusFilter !== 'ALL' && statusFilter !== 'HISTORY') {
@@ -144,7 +150,7 @@ const EmployeeApproval: React.FC = () => {
     }
     
     return list;
-  }, [visitors, statusFilter, history, searchQuery]);
+  }, [visitors, statusFilter, history, searchQuery, currentTime]);
 
   const stats = useMemo(() => ({
     all: visitors.length,

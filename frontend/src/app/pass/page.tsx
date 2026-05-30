@@ -123,10 +123,14 @@ const DigitalPass: React.FC = () => {
       const startTime = new Date(visitor.checkInTime || visitor.updatedAt).getTime();
       const now = new Date().getTime();
       const diff = Math.max(0, now - startTime);
-      const hours = Math.floor(diff / (1000 * 60 * 60));
-      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-      setElapsed(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
+      if (isNaN(diff)) {
+        setElapsed('--:--:--');
+      } else {
+        const hours = Math.floor(diff / (1000 * 60 * 60));
+        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+        setElapsed(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
+      }
     }, 1000);
     return () => clearInterval(timer);
   }, [visitor, status]);
